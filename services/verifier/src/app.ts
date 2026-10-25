@@ -12,6 +12,7 @@ import {
   formatAnchorReference,
   nextStep,
   openDispute,
+  sha256Hex,
   signEnvelope,
   type CriterionResult,
   type MilestoneState,
@@ -41,6 +42,14 @@ export interface AppConfig {
   autoRelease: boolean;
   /** Clock, injectable for tests. */
   now?: () => string;
+  /**
+   * Accept client-supplied document readings instead of a photo. Demo only:
+   * with this on and autoRelease on, whoever reaches the service can release
+   * money by posting a reading that says PASS. Refused when autoRelease is on.
+   */
+  acceptReadings?: boolean;
+  /** Shared bearer token the product backend must present. Unset means open (local dev only). */
+  apiToken?: string;
 }
 
 const VerifyBody = z.object({
@@ -70,11 +79,28 @@ const ChallengeBody = z.object({
 });
 
 export function createApp(config: AppConfig) {
+  if (config.acceptReadings && config.autoRelease) {
+    throw new Error("acceptReadings cannot be combined with autoRelease: a posted reading could release funds");
+  }
   const now = config.now ?? (() => new Date().toISOString());
   const app = new Hono();
 
+  // Every write needs the backend's token; reads (health, anchored envelopes, cases) stay public on purpose.
+  app.use("*", async (c, next) => {
+    if (c.req.method === "GET" || !config.apiToken) return next();
+    if (c.req.header("authorization") !== `Bearer ${config.apiToken}`) return c.json({ error: "unauthorized" }, 401);
+    return next();
+  });
+
   app.get("/health", (c) =>
-    c.json({ ok: true, verifier: config.verifierKey.publicKey(), model: Boolean(config.model), autoRelease: config.autoRelease }),
+    c.json({
+      ok: true,
+      verifier: config.verifierKey.publicKey(),
+      model: Boolean(config.model),
+      autoRelease: config.autoRelease,
+      acceptReadings: Boolean(config.acceptReadings),
+      authenticated: Boolean(config.apiToken),
+    }),
   );
 
   /** Natural language -> frozen condition. Addresses come from the caller, never from the model. */
@@ -108,16 +134,22 @@ export function createApp(config: AppConfig) {
 
     let semantic: CriterionResult[];
     let score: number | undefined;
-    if (body.data.reading) {
-      semantic = assessReading(condition, body.data.reading, fx);
-      score = scoreReading(body.data.reading, semantic);
-    } else if (body.data.image) {
-      if (!config.model) return c.json({ error: "no model credentials configured; send a precomputed reading" }, 503);
+    if (body.data.image) {
+      if (!config.model) return c.json({ error: "no model credentials configured" }, 503);
+      // The envelope must name the bytes the model actually looked at.
+      const imageHash = sha256Hex(Buffer.from(body.data.image.base64, "base64"));
+      if (!evidence.some((e) => e.sha256 === imageHash)) {
+        return c.json({ error: "image hash does not match any evidence item", imageHash }, 422);
+      }
       const outcome = await evaluateDocument(config.model, { condition, image: body.data.image, fx });
       semantic = outcome.criteria;
       score = outcome.score;
+    } else if (body.data.reading) {
+      if (!config.acceptReadings) return c.json({ error: "precomputed readings are not accepted; send the image" }, 403);
+      semantic = assessReading(condition, body.data.reading, fx);
+      score = scoreReading(body.data.reading, semantic);
     } else {
-      return c.json({ error: "send image or reading" }, 400);
+      return c.json({ error: "send image (or reading, in demo mode)" }, 400);
     }
 
     const criteria = [...checkDeterministic(condition, facts), ...semantic];
