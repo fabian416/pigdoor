@@ -110,6 +110,21 @@ envelope, modelReading?, evidenceLinks[], questions[], challengeNote? }`. Las `q
 códigos abiertos (ej. `DOCUMENT_ILLEGIBLE` → "pedir una foto más clara"). El sobre va intacto para que
 el resolutor lo re-verifique.
 
+## 7. Endpoints del servicio verificador (`services/verifier`)
+
+| Método y ruta | Entrada | Salida |
+|---|---|---|
+| `GET /health` | — | `{ ok, verifier (G...), model, autoRelease }` |
+| `POST /conditions` | `{ text, payer, receiver, asset, defaultDeadline }` | `{ condition, conditionHash, draft }` (503 sin credenciales de modelo) |
+| `POST /agreements/:id/milestones/:m/verify` | `{ condition, evidence[], image \| reading, fx?, status? }` | `{ id, envelope, anchor, nextStep, status, release? }` |
+| `GET /envelopes/:sha256` | — | los bytes canónicos del sobre (destino del anclaje) |
+| `GET /envelopes` | — | `{ ids }` |
+| `POST /envelopes/:sha256/challenge` | `{ openedBy, note, condition, evidenceLinks? }` | `{ caseId, case }` y marca el hito en disputa |
+| `GET /cases/:id` | — | el caso |
+
+El backend de producto llama a `verify` cuando el proveedor sube la evidencia; el servicio lee los
+hechos del escrow por su cuenta (`EscrowClient`), nunca confía en los que le manden.
+
 ## Códigos de razón
 
 `OK · NO_CRITERIA · DESTINATION_MISMATCH · AMOUNT_OVER_MAX · EVIDENCE_OUT_OF_WINDOW · ESCROW_NOT_FUNDED ·
