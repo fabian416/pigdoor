@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { Keypair, parseAnchorReference, resolveEnvelope, verifyEnvelope } from "@workspace/core";
+import { Keypair, parseAnchorReference, resolveEnvelope, sha256Hex, verifyEnvelope } from "@workspace/core";
 import type { StructuredModel } from "@workspace/semantic";
 import { createApp } from "../src/app.ts";
 import { inMemoryEscrowClient } from "../src/escrow-client.ts";
@@ -15,9 +15,13 @@ const goodReading = example("reading-good.json");
 const wrongShop = example("reading-wrong-shop.json");
 
 const AGREEMENT = "CADMJSOMBSHUW2LMETBUOVH2CSVY3EDISY4V7UMH7TDU2LE5XRCEULAG";
+
+/** A stand-in photo and the evidence item that names its bytes. */
+const photo = { base64: Buffer.from("not really a jpeg, but bytes are bytes").toString("base64"), mediaType: "image/jpeg" as const };
+const photoEvidence = { ...evidence[0], sha256: sha256Hex(Buffer.from(photo.base64, "base64")) };
 const NOW = "2026-10-30T15:05:00Z";
 
-function harness(opts: { autoRelease?: boolean; model?: StructuredModel } = {}) {
+function harness(opts: { autoRelease?: boolean; model?: StructuredModel; acceptReadings?: boolean; apiToken?: string } = {}) {
   const verifierKey = Keypair.random();
   const escrow = inMemoryEscrowClient({ [`${AGREEMENT}/1`]: facts, [`${AGREEMENT}/2`]: facts });
   const store = memoryStore();
@@ -27,11 +31,18 @@ function harness(opts: { autoRelease?: boolean; model?: StructuredModel } = {}) 
     store,
     model: opts.model,
     publicUrl: "http://verifier.test",
-    autoRelease: opts.autoRelease ?? true,
+    // Readings are the offline demo path, so by default tests run in demo mode: readings on, auto-release off.
+    autoRelease: opts.autoRelease ?? false,
+    acceptReadings: opts.acceptReadings ?? !(opts.autoRelease ?? false),
+    apiToken: opts.apiToken,
     now: () => NOW,
   });
-  const post = (path: string, body: unknown) =>
-    app.request(path, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } });
+  const post = (path: string, body: unknown, token?: string) =>
+    app.request(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    });
   return { app, post, verifierKey, escrow, store };
 }
 
@@ -39,12 +50,13 @@ describe("verifier service", () => {
   it("health reports the verifier key and whether a model is configured", async () => {
     const { app, verifierKey } = harness();
     const res = await app.request("/health");
-    expect(await res.json()).toMatchObject({ ok: true, verifier: verifierKey.publicKey(), model: false, autoRelease: true });
+    expect(await res.json()).toMatchObject({ ok: true, verifier: verifierKey.publicKey(), model: false, autoRelease: false, acceptReadings: true, authenticated: false });
   });
 
   it("happy path: verifies, signs, anchors into the escrow and releases", async () => {
-    const { post, escrow, verifierKey, app } = harness();
-    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: goodReading });
+    const model: StructuredModel = async (req) => ({ ok: true, value: req.schema.parse(goodReading) });
+    const { post, escrow, verifierKey, app } = harness({ autoRelease: true, model });
+    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence: [photoEvidence], image: photo });
     expect(res.status).toBe(200);
     const body = await res.json();
 
@@ -78,7 +90,7 @@ describe("verifier service", () => {
   });
 
   it("report-only mode never releases, even on ALLOW", async () => {
-    const { post, escrow } = harness({ autoRelease: false });
+    const { post, escrow } = harness();
     const body = await (await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: goodReading })).json();
     expect(body.nextStep.action).toBe("RELEASE");
     expect(body.status).toBe("FUNDED");
@@ -94,17 +106,34 @@ describe("verifier service", () => {
     expect(escrow.milestones.get(`${AGREEMENT}/1`)!.disputed).toContain("DOCUMENT_ILLEGIBLE");
   });
 
-  it("without model credentials a photo is refused with 503, a reading is accepted", async () => {
+  it("without model credentials a photo is refused with 503", async () => {
     const { post } = harness();
-    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, image: { base64: "AAAA", mediaType: "image/jpeg" } });
+    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence: [photoEvidence], image: photo });
     expect(res.status).toBe(503);
   });
 
-  it("uses the model for photos when configured", async () => {
+  it("the envelope must name the bytes the model saw: a photo whose hash is not in the evidence is refused", async () => {
     const model: StructuredModel = async (req) => ({ ok: true, value: req.schema.parse(goodReading) });
     const { post } = harness({ model });
-    const body = await (await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, image: { base64: "AAAA", mediaType: "image/jpeg" } })).json();
-    expect(body.envelope.verdict.decision).toBe("ALLOW");
+    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, image: photo });
+    expect(res.status).toBe(422);
+    expect((await res.json()).imageHash).toBe(photoEvidence.sha256);
+  });
+
+  it("posted readings cannot release money: refused when readings are off, and the combination with auto-release is impossible", async () => {
+    const { post, escrow } = harness({ acceptReadings: false });
+    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: goodReading });
+    expect(res.status).toBe(403);
+    expect(escrow.milestones.get(`${AGREEMENT}/1`)!.released).toBeUndefined();
+    expect(() => harness({ autoRelease: true, acceptReadings: true })).toThrow(/acceptReadings/);
+  });
+
+  it("writes need the backend token; reads stay public", async () => {
+    const { post, app } = harness({ apiToken: "s3cret" });
+    expect((await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: goodReading })).status).toBe(401);
+    expect((await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: goodReading }, "s3cret")).status).toBe(200);
+    expect((await app.request("/health")).status).toBe(200);
+    expect((await app.request("/envelopes")).status).toBe(200);
   });
 
   it("serves the anchored bytes content-addressed and 404s otherwise", async () => {

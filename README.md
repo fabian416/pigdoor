@@ -27,7 +27,7 @@ so their tooling can read ours. Anyone can verify the signature.
 ## Run the verifier service
 
 ```bash
-pnpm --filter @workspace/verifier-service start     # http://localhost:8787, in-memory escrow seeded with examples/facts.json
+ACCEPT_READINGS=1 pnpm --filter @workspace/verifier-service start   # demo mode: http://localhost:8787, in-memory escrow seeded with examples/facts.json
 
 curl -s localhost:8787/health
 curl -s -X POST localhost:8787/agreements/demo/milestones/1/verify -H 'content-type: application/json' \
@@ -40,6 +40,8 @@ curl -s -X POST localhost:8787/agreements/demo/milestones/1/verify -H 'content-t
 | `ANTHROPIC_API_KEY` | Credentials for the semantic verifier (or `ant auth login`) | unset → only precomputed readings accepted |
 | `PUBLIC_URL` | Base URL used in anchor references | `http://localhost:8787` |
 | `AUTO_RELEASE` | `1` to execute releases on ALLOW; otherwise the service only reports the next step | report only |
+| `ACCEPT_READINGS` | `1` accepts precomputed document readings instead of photos. Demo only; refused together with `AUTO_RELEASE` because a posted reading could release funds | off |
+| `API_TOKEN` | Bearer token the product backend must send on every write; reads (health, anchored envelopes, cases) stay public | unset = open, local dev only |
 | `ESCROW` | `memory` or `tw` (Trustless Work V2; needs `TW_API_KEY`, `TW_BASE_URL`) | `memory` |
 | `DATA_DIR` | Where envelopes and cases are stored | `./data` |
 | `PORT` | Listen port | `8787` |

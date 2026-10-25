@@ -9,6 +9,8 @@
  *   PUBLIC_URL        where this service is reachable (anchor uri base)
  *   PORT              default 8787
  *   AUTO_RELEASE=1    execute releases on ALLOW (default: report only)
+ *   ACCEPT_READINGS=1 demo only: accept precomputed readings instead of photos (refused with AUTO_RELEASE)
+ *   API_TOKEN         bearer token the product backend must send on writes (unset = open, local dev only)
  *   ESCROW=memory|tw  escrow backend (default memory; tw needs TW_* vars)
  *   ANTHROPIC_API_KEY or `ant auth login` for the semantic verifier
  */
@@ -46,7 +48,10 @@ const app = createApp({
   model,
   publicUrl,
   autoRelease: process.env.AUTO_RELEASE === "1",
+  acceptReadings: process.env.ACCEPT_READINGS === "1",
+  apiToken: process.env.API_TOKEN,
 });
+if (!process.env.API_TOKEN) console.warn("API_TOKEN not set; write endpoints are open (local dev only)");
 
 serve({ fetch: app.fetch, port }, () => console.log(`verifier listening on ${publicUrl} as ${verifierKey.publicKey()}`));
 
