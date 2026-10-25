@@ -1,0 +1,8 @@
+{
+  "milestoneReceiver": "GDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+  "milestoneAmount": "2",
+  "fundedAt": "2026-10-25T21:00:00Z",
+  "fundingTxHash": "a0ed118a0a02ad87e09f0a743cc90d32199c931baf01b052cf49393e85719850",
+  "evidenceSubmittedAt": "2026-10-26T18:30:00Z",
+  "committedConditionHash": "d0f69dc857c423389ef073af27ded5dbebe2bc6762c6d3e76a188b80bb198a2a"
+}

@@ -1,4 +1,4 @@
-import type { EscrowFacts } from "@workspace/core";
+import type { EscrowFacts } from "@witness/core";
 
 /**
  * The escrow provider behind an interface. The verifier service never talks

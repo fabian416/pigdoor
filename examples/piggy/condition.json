@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "kind": "task",
+  "payer": "GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+  "receiver": "GDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+  "receiverName": "Sasha",
+  "asset": { "code": "USDC", "issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" },
+  "maxAmount": "2",
+  "task": {
+    "title": "Hacer la cama",
+    "doneWhen": ["la cama está tendida con la sábana estirada", "la almohada está en su lugar", "no hay ropa ni objetos sobre la cama"]
+  },
+  "window": { "notBefore": "2026-10-25T00:00:00Z", "notAfter": "2026-11-01T23:59:59Z" },
+  "settlement": { "role": "payee_prepaid" },
+  "evidence": { "type": "task_photo", "mustShow": ["the task done"] },
+  "sourceText": "2 USDC para Sasha cuando haga la cama, antes del domingo."
+}

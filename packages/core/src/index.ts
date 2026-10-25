@@ -2,8 +2,19 @@
 export { Keypair } from "@stellar/stellar-base";
 export { canonicalize, hashCanonical, sha256Hex } from "./canonical.ts";
 export { ASSET_DECIMALS, fromStroops, toStroops } from "./amount.ts";
-export { Amount, ConditionSchema, EvidenceType, StellarAddress, conditionHash } from "./condition.ts";
-export type { Condition } from "./condition.ts";
+export {
+  Amount,
+  ConditionSchema,
+  EvidenceType,
+  PurchaseConditionSchema,
+  SettlementRole,
+  StellarAddress,
+  TaskConditionSchema,
+  conditionHash,
+} from "./condition.ts";
+export type { Condition, PurchaseCondition, TaskCondition } from "./condition.ts";
+export { checkUnderwriting, underwriterVerifier } from "./underwriter.ts";
+export type { UnderwritingFacts, UnderwritingPolicy } from "./underwriter.ts";
 export {
   CriterionOutcome,
   CriterionResultSchema,

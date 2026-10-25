@@ -1,36 +1,45 @@
 #!/usr/bin/env bash
-# Runs the happy path and the rejection path end to end, offline, and leaves the
-# two signed envelopes plus their anchor references in ./out. Pass a photo as
-# $1 to run the happy path against the live model instead of the sample reading.
+# The two flows from the deck, end to end, offline. Leaves the signed envelopes
+# in ./out and re-verifies every one of them as a third party would.
+#   Lendoor: underwriting verdict -> good invoice releases -> wrong shop is denied
+#   Piggy:   bed made releases -> bed not made is denied
+# Set LIVE_PHOTO_LENDOOR / LIVE_PHOTO_PIGGY to run those happy paths against the model.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p out
 
 CLI=packages/semantic/src/cli.ts
 VERIFY=packages/semantic/src/verify-cli.ts
-# macOS ships bash 3.2, where an empty array trips `set -u`; keep optional flags in a function.
+
 run_cli() {
-  node "$CLI" --condition examples/condition.json --facts examples/facts.json --evidence examples/evidence.json \
-    --agreement "${AGREEMENT:-pending}" --milestone 1 \
-    ${VERIFIER_SECRET:+--verifier-secret "$VERIFIER_SECRET"} "$@"
+  node "$CLI" --agreement "${AGREEMENT:-pending}" ${VERIFIER_SECRET:+--verifier-secret "$VERIFIER_SECRET"} "$@"
 }
 
-echo "== 1. happy path"
-if [[ -n "${1:-}" ]]; then
-  run_cli --photo "$1" ${FX:+--fx "$FX"} > out/envelope-allow.json
+echo "== Lendoor 1/3 · underwriting (score + policy, signed for the funder)"
+run_cli --condition examples/lendoor/condition.json --underwriting examples/lendoor/underwriting.json > out/lendoor-underwriting.json
+
+echo; echo "== Lendoor 2/3 · Ana's invoice from Casa Hogar Electro"
+if [[ -n "${LIVE_PHOTO_LENDOOR:-}" ]]; then
+  run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --photo "$LIVE_PHOTO_LENDOOR" ${FX:+--fx "$FX"} > out/lendoor-allow.json
 else
-  run_cli --reading examples/reading-good.json > out/envelope-allow.json
+  run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --reading examples/lendoor/reading-good.json > out/lendoor-allow.json
 fi
 
-echo
-echo "== 2. rejection path (receipt from another shop)"
-run_cli --reading examples/reading-wrong-shop.json > out/envelope-deny.json || true
+echo; echo "== Lendoor 3/3 · a supermarket ticket instead"
+run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --reading examples/lendoor/reading-wrong-shop.json > out/lendoor-deny.json || true
 
-echo
-echo "== 3. anyone re-verifies both envelopes"
-node "$VERIFY" out/envelope-allow.json
-echo
-node "$VERIFY" out/envelope-deny.json
+echo; echo "== Piggy 1/2 · Sasha made the bed"
+if [[ -n "${LIVE_PHOTO_PIGGY:-}" ]]; then
+  run_cli --condition examples/piggy/condition.json --facts examples/piggy/facts.json --evidence examples/piggy/evidence.json --photo "$LIVE_PHOTO_PIGGY" > out/piggy-allow.json
+else
+  run_cli --condition examples/piggy/condition.json --facts examples/piggy/facts.json --evidence examples/piggy/evidence.json --reading examples/piggy/reading-done.json > out/piggy-allow.json
+fi
 
-echo
-echo "envelopes in ./out; the 'anchor' line is the sha256 to write into the escrow milestone."
+echo; echo "== Piggy 2/2 · the bed is not made"
+run_cli --condition examples/piggy/condition.json --facts examples/piggy/facts.json --evidence examples/piggy/evidence.json --reading examples/piggy/reading-not-done.json > out/piggy-deny.json || true
+
+echo; echo "== anyone re-verifies the five envelopes"
+for f in out/lendoor-underwriting.json out/lendoor-allow.json out/lendoor-deny.json out/piggy-allow.json out/piggy-deny.json; do
+  echo "-- $f"; node "$VERIFY" "$f" | head -1
+done
+echo; echo "envelopes in ./out"

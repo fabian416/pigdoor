@@ -1,14 +1,26 @@
-# Conditional release, verified by content
+# Witness
 
-> Working name pending. Built at [HackMeridian 2026](https://www.hackmeridian.com/build), Lisbon, 25–26 October.
+> **Proof before payment: money that moves only when the condition is proven.**
+> Piggy × Lendoor at [HackMeridian 2026](https://www.hackmeridian.com/build), Lisbon, 25–26 October · Scale · Stellar Composed.
 
 Money locked in a Stellar escrow is released only when the evidence says what it has to say.
-Two verifiers run on every milestone and both must pass:
+Four pieces: a **Condition** committed by hash before funds move, **Evidence** sealed in an
+envelope, a **Verdict** signed by a verifier each product plugs in, and the **Escrow** (Trustless
+Work) that releases or holds.
 
-- **Deterministic**: the milestone pays the committed address, within the committed amount,
-  inside the window, and the escrow is funded on-chain. No model, no cost.
-- **Semantic**: an AI reads the receipt photo and reports what is written on it; fixed rules
-  compare that with the condition. The model never decides and never sees the amount cap.
+Two products, two verifiers, one envelope format:
+
+- **Piggy, families**: the allowance when the chore is done. The AI describes the photo against
+  the "done when" statements; code decides. One verifier, because the release *is* the payment.
+- **Lendoor, credit**: the partner's capital when underwriting says yes, paid to the store against
+  the invoice. Two verifiers on the same escrow: the deterministic one proves the money goes to the
+  committed address, within the cap, inside the window, from a funded escrow; the semantic one proves
+  the invoice says what it must. Plus the **underwriter** verdict (score, KYC, line, policy) signed
+  for the funder before funding, so whoever put the money in can audit every decision without
+  trusting Lendoor.
+
+The model never compares or adds: it only extracts fields under a strict schema. Every comparison
+and every decision is deterministic code.
 
 The result is a signed `VerificationEnvelope` that follows the
 [Trustless Work research vocabulary](https://github.com/Trustless-Work/agentic-escrow-research/blob/main/research-notes/verification-and-evidence-envelope-2026-09-21.md),
@@ -18,8 +30,9 @@ so their tooling can read ours. Anyone can verify the signature.
 
 | Path | What |
 |---|---|
-| `packages/core` | Condition schema, RFC 8785 canonicalization and hashing, criteria and the decision rule, deterministic verifier, signed envelope, anchoring (verify a verdict from the reference written in the escrow), milestone lifecycle (permissionless refund after the deadline), dispute case. Pure TypeScript, no I/O beyond an injectable fetch. |
-| `packages/semantic` | Semantic verifier (Claude with structured outputs), the trigger agent that turns the payer's words into a condition, `cli.ts` (run the whole chain) and `verify-cli.ts` (re-verify an anchored envelope). |
+| `packages/core` | Condition schema (purchase / task, `settlement.role`), RFC 8785 canonicalization and hashing, criteria and the decision rule, deterministic verifier, Lendoor underwriter verifier, signed envelope, anchoring (verify a verdict from the reference written in the escrow), milestone lifecycle (refund after the deadline), dispute case. Pure TypeScript, no I/O beyond an injectable fetch. |
+| `packages/semantic` | Semantic verifiers (Claude with structured outputs): invoice reading for purchases, task-photo reading for chores; the trigger agent that turns the payer's words into a condition; `cli.ts` (run one verdict) and `verify-cli.ts` (re-verify an anchored envelope). |
+| `examples/lendoor`, `examples/piggy` | The two flows from the deck: Ana's washing machine (290 USDC, invoice, underwriting) and Sasha's bed (2 USDC, photo). |
 | `services/verifier` | The verifier as its own process with its own key: `POST /agreements/:id/milestones/:m/verify` runs both verifiers, signs the envelope, serves it content-addressed at `GET /envelopes/:sha256` (the anchor target), writes the anchor line into the escrow and releases or escalates. The escrow provider sits behind an interface: in-memory for the demo, Trustless Work V2 to be wired after the integration spike. |
 | `scripts/demo.sh` | Happy path, rejection path, independent re-verification. Offline by default; pass a photo to go live. |
 | `.github/workflows/ci.yml` | Typecheck, tests and the offline demo on every push. |
@@ -27,7 +40,7 @@ so their tooling can read ours. Anyone can verify the signature.
 ## Run the verifier service
 
 ```bash
-ACCEPT_READINGS=1 pnpm --filter @workspace/verifier-service start   # demo mode: http://localhost:8787, in-memory escrow seeded with examples/facts.json
+ACCEPT_READINGS=1 pnpm --filter @witness/verifier-service start   # demo mode: http://localhost:8787, in-memory escrow seeded with examples/facts.json
 
 curl -s localhost:8787/health
 curl -s -X POST localhost:8787/agreements/demo/milestones/1/verify -H 'content-type: application/json' \
@@ -37,6 +50,7 @@ curl -s -X POST localhost:8787/agreements/demo/milestones/1/verify -H 'content-t
 | Env | Meaning | Default |
 |---|---|---|
 | `VERIFIER_SECRET` | Stellar secret (S...) of the release signer; its public key is what the escrow lists | ephemeral, printed at start |
+| `UNDERWRITER_SECRET` | Stellar secret of Lendoor's underwriter, so its verdicts carry their own address | the verifier key |
 | `ANTHROPIC_API_KEY` | Credentials for the semantic verifier (or `ant auth login`) | unset → only precomputed readings accepted |
 | `PUBLIC_URL` | Base URL used in anchor references | `http://localhost:8787` |
 | `AUTO_RELEASE` | `1` to execute releases on ALLOW; otherwise the service only reports the next step | report only |
@@ -56,13 +70,17 @@ Why a separate process: if the service that funds the escrow also signed release
 pnpm install
 pnpm test
 
-# whole chain, offline (precomputed reading)
-node packages/semantic/src/cli.ts --condition examples/condition.json --facts examples/facts.json \
-  --evidence examples/evidence.json --reading examples/reading-good.json
+# both flows from the deck, offline, five signed envelopes re-verified
+./scripts/demo.sh
 
-# whole chain, live model on a photo (needs ANTHROPIC_API_KEY or `ant auth login`)
-node packages/semantic/src/cli.ts --condition examples/condition.json --facts examples/facts.json \
-  --evidence examples/evidence.json --photo remito.jpg --fx ARS=1450
+# one verdict, live model on a photo (needs ANTHROPIC_API_KEY or `ant auth login`)
+node packages/semantic/src/cli.ts --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json \
+  --evidence examples/lendoor/evidence.json --photo factura.jpg --fx ARS=1450
+node packages/semantic/src/cli.ts --condition examples/piggy/condition.json --facts examples/piggy/facts.json \
+  --evidence examples/piggy/evidence.json --photo cama.jpg
+
+# Lendoor's underwriting verdict, before funding
+node packages/semantic/src/cli.ts --condition examples/lendoor/condition.json --underwriting examples/lendoor/underwriting.json
 ```
 
 ## Prior work

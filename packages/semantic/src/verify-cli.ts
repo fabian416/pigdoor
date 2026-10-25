@@ -11,7 +11,7 @@
  */
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { anchorReference, parseAnchorReference, resolveEnvelope, verifyEnvelope, VerificationEnvelopeSchema } from "@workspace/core";
+import { anchorReference, parseAnchorReference, resolveEnvelope, verifyEnvelope, VerificationEnvelopeSchema } from "@witness/core";
 
 const { values: args, positionals } = parseArgs({
   allowPositionals: true,

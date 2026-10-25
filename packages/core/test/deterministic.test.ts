@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkDeterministic, deterministicVerifier } from "../src/deterministic.ts";
-import { condition, goodFacts, stranger } from "./fixtures.ts";
+import { condition, goodFacts, stranger, taskCondition, taskFacts } from "./fixtures.ts";
 
 const byId = (results: ReturnType<typeof checkDeterministic>) =>
   Object.fromEntries(results.map((r) => [r.id, r]));
@@ -27,11 +27,11 @@ describe("deterministic verifier", () => {
   });
 
   it("fails when the milestone exceeds the committed maximum, even by a stroop", () => {
-    expect(byId(checkDeterministic(condition, { ...goodFacts, milestoneAmount: "100.0000001" })).amount_within_max.code).toBe(
+    expect(byId(checkDeterministic(condition, { ...goodFacts, milestoneAmount: "290.0000001" })).amount_within_max.code).toBe(
       "AMOUNT_OVER_MAX",
     );
     expect(byId(checkDeterministic(condition, { ...goodFacts, milestoneAmount: "0" })).amount_within_max.result).toBe("FAIL");
-    expect(byId(checkDeterministic(condition, { ...goodFacts, milestoneAmount: "99.9999999" })).amount_within_max.result).toBe("PASS");
+    expect(byId(checkDeterministic(condition, { ...goodFacts, milestoneAmount: "289.9999999" })).amount_within_max.result).toBe("PASS");
   });
 
   it("fails when the evidence arrives outside the window", () => {
@@ -39,6 +39,13 @@ describe("deterministic verifier", () => {
     expect(late.evidence_within_window.code).toBe("EVIDENCE_OUT_OF_WINDOW");
     const early = byId(checkDeterministic(condition, { ...goodFacts, evidenceSubmittedAt: "2026-08-01T00:00:00Z" }));
     expect(early.evidence_within_window.result).toBe("FAIL");
+  });
+
+  it("for an allowance (payee_prepaid) only the integrity checks run: there is no settlement to check", () => {
+    const results = checkDeterministic(taskCondition, taskFacts);
+    expect(results.map((r) => r.id)).toEqual(["condition_matches_escrow", "escrow_funded"]);
+    expect(results.every((r) => r.result === "PASS")).toBe(true);
+    expect(byId(checkDeterministic(taskCondition, { ...taskFacts, committedConditionHash: "0".repeat(64) })).condition_matches_escrow.result).toBe("FAIL");
   });
 
   it("fails when funding is not confirmed on-chain", () => {

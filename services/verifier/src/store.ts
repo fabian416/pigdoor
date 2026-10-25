@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { envelopeBytes, sha256Hex, type DisputeCase, type VerificationEnvelope } from "@workspace/core";
+import { envelopeBytes, sha256Hex, type DisputeCase, type VerificationEnvelope } from "@witness/core";
 
 /**
  * Content-addressed storage for envelopes: the id is the sha256 of the

@@ -1,0 +1,10 @@
+[
+  {
+    "type": "task_photo",
+    "uri": "s3://evidence/sasha-1/cama.jpg",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "mimeType": "image/jpeg",
+    "uploader": "GDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "createdAt": "2026-10-26T18:30:00Z"
+  }
+]

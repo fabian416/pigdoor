@@ -2,11 +2,14 @@ import { Hono } from "hono";
 import { z } from "zod";
 import {
   ConditionSchema,
+  DEFAULT_POLICY,
   EvidenceItemSchema,
   Keypair,
+  SettlementRole,
   anchorReference,
   applyAction,
   checkDeterministic,
+  checkUnderwriting,
   conditionHash,
   decide,
   formatAnchorReference,
@@ -16,22 +19,24 @@ import {
   signEnvelope,
   type CriterionResult,
   type MilestoneState,
-} from "@workspace/core";
+} from "@witness/core";
 import {
-  DocumentReadingSchema,
   assessReading,
   bindCondition,
   draftCondition,
   evaluateDocument,
+  readingSchemaFor,
   scoreReading,
   type StructuredModel,
-} from "@workspace/semantic";
+} from "@witness/semantic";
 import type { EscrowClient } from "./escrow-client.ts";
 import type { Store } from "./store.ts";
 
 export interface AppConfig {
   /** Stellar keypair of the verifier; its public key is the releaseSigner on the escrow. */
   verifierKey: Keypair;
+  /** Lendoor's underwriter key, if separate. "releaseSigner: PIGGY_AI_VERIFIER -> LENDOOR_UNDERWRITER": one address each. */
+  underwriterKey?: Keypair;
   escrow: EscrowClient;
   store: Store;
   /** The semantic model. Undefined means "no credentials": only precomputed readings are accepted. */
@@ -56,7 +61,8 @@ const VerifyBody = z.object({
   condition: ConditionSchema,
   evidence: z.array(EvidenceItemSchema).min(1),
   image: z.object({ base64: z.string().min(1), mediaType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]) }).optional(),
-  reading: DocumentReadingSchema.optional(),
+  /** A DocumentReading or a TaskReading, validated against the condition kind. Demo mode only. */
+  reading: z.unknown().optional(),
   fx: z.object({ currency: z.string(), unitsPerAsset: z.number().positive() }).optional(),
   /** Current escrow status as the backend knows it. */
   status: z.enum(["FUNDED", "DISPUTED"]).default("FUNDED"),
@@ -67,7 +73,21 @@ const DraftBody = z.object({
   payer: z.string(),
   receiver: z.string(),
   asset: z.object({ code: z.string(), issuer: z.string() }),
+  settlementRole: SettlementRole,
   defaultDeadline: z.iso.datetime(),
+});
+
+const UnderwriteBody = z.object({
+  condition: ConditionSchema,
+  facts: z.object({
+    score: z.number().int().min(0).max(1000),
+    kycOk: z.boolean(),
+    kycValidUntil: z.iso.datetime(),
+    approvedLimit: z.string(),
+    outstanding: z.string(),
+    evaluatedAt: z.iso.datetime(),
+  }),
+  policy: z.object({ minScore: z.number().int(), maxDisbursement: z.string(), version: z.string().min(1) }),
 });
 
 const ChallengeBody = z.object({
@@ -118,6 +138,36 @@ export function createApp(config: AppConfig) {
     }
   });
 
+  /**
+   * Lendoor's underwriter: score plus policy, signed for the partner who funds
+   * the book. Runs before funding; same envelope, milestoneId "underwriting".
+   */
+  app.post("/agreements/:agreementId/underwrite", async (c) => {
+    const { agreementId } = c.req.param();
+    const body = UnderwriteBody.safeParse(await c.req.json());
+    if (!body.success) return c.json({ error: body.error.issues }, 400);
+    const { condition, facts, policy } = body.data;
+    const key = config.underwriterKey ?? config.verifierKey;
+    const criteria = checkUnderwriting(condition, facts, policy);
+    const envelope = signEnvelope(
+      {
+        agreementId,
+        milestoneId: "underwriting",
+        verifier: key.publicKey(),
+        verifierType: "platform",
+        criteria,
+        evidence: [],
+        verdict: decide(criteria, undefined, { ...DEFAULT_POLICY, policyVersion: policy.version }),
+        timestamp: now(),
+        conditionHash: conditionHash(condition),
+      },
+      key,
+    );
+    const { id } = config.store.putEnvelope(envelope);
+    const anchor = formatAnchorReference(anchorReference(envelope, `${config.publicUrl}/envelopes/${id}`));
+    return c.json({ id, envelope, anchor, fundable: envelope.verdict.decision === "ALLOW" });
+  });
+
   /** Both verifiers, one signed envelope, the next step. */
   app.post("/agreements/:agreementId/milestones/:milestoneId/verify", async (c) => {
     const { agreementId, milestoneId } = c.req.param();
@@ -134,6 +184,9 @@ export function createApp(config: AppConfig) {
 
     let semantic: CriterionResult[];
     let score: number | undefined;
+    if (body.data.reading && !config.acceptReadings) {
+      return c.json({ error: "precomputed readings are not accepted; send the image" }, 403);
+    }
     if (body.data.image) {
       if (!config.model) return c.json({ error: "no model credentials configured" }, 503);
       // The envelope must name the bytes the model actually looked at.
@@ -145,9 +198,10 @@ export function createApp(config: AppConfig) {
       semantic = outcome.criteria;
       score = outcome.score;
     } else if (body.data.reading) {
-      if (!config.acceptReadings) return c.json({ error: "precomputed readings are not accepted; send the image" }, 403);
-      semantic = assessReading(condition, body.data.reading, fx);
-      score = scoreReading(body.data.reading, semantic);
+      const parsed = readingSchemaFor(condition).safeParse(body.data.reading);
+      if (!parsed.success) return c.json({ error: `reading does not match a ${condition.kind} condition`, issues: parsed.error.issues }, 400);
+      semantic = assessReading(condition, parsed.data, fx);
+      score = scoreReading(parsed.data, semantic);
     } else {
       return c.json({ error: "send image (or reading, in demo mode)" }, 400);
     }

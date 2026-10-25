@@ -1,18 +1,18 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { Keypair, parseAnchorReference, resolveEnvelope, sha256Hex, verifyEnvelope } from "@workspace/core";
-import type { StructuredModel } from "@workspace/semantic";
+import { Keypair, parseAnchorReference, resolveEnvelope, sha256Hex, verifyEnvelope } from "@witness/core";
+import type { StructuredModel } from "@witness/semantic";
 import { createApp } from "../src/app.ts";
 import { inMemoryEscrowClient } from "../src/escrow-client.ts";
 import { memoryStore } from "../src/store.ts";
 
 const root = new URL("../../../", import.meta.url);
 const example = (name: string) => JSON.parse(readFileSync(new URL(`examples/${name}`, root), "utf8"));
-const condition = example("condition.json");
-const facts = example("facts.json");
-const evidence = example("evidence.json");
-const goodReading = example("reading-good.json");
-const wrongShop = example("reading-wrong-shop.json");
+const condition = example("lendoor/condition.json");
+const facts = example("lendoor/facts.json");
+const evidence = example("lendoor/evidence.json");
+const goodReading = example("lendoor/reading-good.json");
+const wrongShop = example("lendoor/reading-wrong-shop.json");
 
 const AGREEMENT = "CADMJSOMBSHUW2LMETBUOVH2CSVY3EDISY4V7UMH7TDU2LE5XRCEULAG";
 
@@ -155,6 +155,67 @@ describe("verifier service", () => {
     expect(c.questions.length).toBeGreaterThan(0);
     expect(escrow.milestones.get(`${AGREEMENT}/1`)!.disputed).toContain("payer");
     expect((await app.request(`/cases/${caseId}`)).status).toBe(200);
+  });
+
+  it("Piggy flow: a task condition runs the semantic verifier plus escrow integrity, and the release is the payment", async () => {
+    const piggy = example("piggy/condition.json");
+    const piggyFacts = example("piggy/facts.json");
+    const { post, escrow } = harness();
+    escrow.set(AGREEMENT, "7", piggyFacts);
+    const body = await (await post(`/agreements/${AGREEMENT}/milestones/7/verify`, { condition: piggy, evidence: example("piggy/evidence.json"), reading: example("piggy/reading-done.json") })).json();
+    expect(body.envelope.verdict.decision).toBe("ALLOW");
+    expect(body.envelope.criteria.map((c: { id: string }) => c.id)).toEqual([
+      "condition_matches_escrow",
+      "escrow_funded",
+      "photo_legible",
+      "task_visible",
+      "task_done",
+      "photo_not_staged",
+    ]);
+    const denied = await (await post(`/agreements/${AGREEMENT}/milestones/7/verify`, { condition: piggy, evidence: example("piggy/evidence.json"), reading: example("piggy/reading-not-done.json") })).json();
+    expect(denied.envelope.verdict).toMatchObject({ decision: "DENY", reasons: ["TASK_NOT_DONE"] });
+  });
+
+  it("a reading of the wrong shape for the condition kind is a 400, not a verdict", async () => {
+    const { post } = harness();
+    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: example("piggy/reading-done.json") });
+    expect(res.status).toBe(400);
+  });
+
+  it("Lendoor underwriting: a separate verdict, separate key, same envelope", async () => {
+    const underwriterKey = Keypair.random();
+    const verifierKey = Keypair.random();
+    const store = memoryStore();
+    const app = createApp({
+      verifierKey,
+      underwriterKey,
+      escrow: inMemoryEscrowClient().client,
+      store,
+      publicUrl: "http://verifier.test",
+      autoRelease: false,
+      acceptReadings: true,
+      now: () => NOW,
+    });
+    const uw = example("lendoor/underwriting.json");
+    const res = await app.request(`/agreements/${AGREEMENT}/underwrite`, {
+      method: "POST",
+      body: JSON.stringify({ condition, ...uw }),
+      headers: { "content-type": "application/json" },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.fundable).toBe(true);
+    expect(body.envelope.milestoneId).toBe("underwriting");
+    expect(body.envelope.verifier).toBe(underwriterKey.publicKey());
+    expect(body.envelope.verdict.policyVersion).toBe("lendoor-1");
+    expect(verifyEnvelope(body.envelope)).toEqual({ ok: true });
+
+    const low = await app.request(`/agreements/${AGREEMENT}/underwrite`, {
+      method: "POST",
+      body: JSON.stringify({ condition, facts: { ...uw.facts, score: 500 }, policy: uw.policy }),
+      headers: { "content-type": "application/json" },
+    });
+    expect((await low.json()).fundable).toBe(false);
   });
 
   it("rejects malformed input and unknown milestones", async () => {

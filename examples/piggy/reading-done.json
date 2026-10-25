@@ -1,0 +1,10 @@
+{
+  "sceneDescription": "A child's bedroom with a single bed, sheet and blanket pulled flat, one pillow at the head, nothing on top.",
+  "taskVisible": "PASS",
+  "taskDone": "PASS",
+  "doneWhenObserved": ["la cama está tendida con la sábana estirada", "la almohada está en su lugar", "no hay ropa ni objetos sobre la cama"],
+  "stagingSigns": [],
+  "photoQuality": 88,
+  "confidence": 91,
+  "notes": "Natural light, phone photo, room matches a child's bedroom."
+}

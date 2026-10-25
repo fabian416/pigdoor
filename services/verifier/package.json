@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/verifier-service",
+  "name": "@witness/verifier-service",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
-    "@workspace/core": "workspace:*",
-    "@workspace/semantic": "workspace:*",
+    "@witness/core": "workspace:*",
+    "@witness/semantic": "workspace:*",
     "hono": "^4.13.14",
     "zod": "^4.6.7"
   }

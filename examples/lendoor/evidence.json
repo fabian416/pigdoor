@@ -1,0 +1,10 @@
+[
+  {
+    "type": "invoice_photo",
+    "uri": "s3://evidence/ana-1/factura.jpg",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mimeType": "image/jpeg",
+    "uploader": "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "createdAt": "2026-10-27T16:00:00Z"
+  }
+]
