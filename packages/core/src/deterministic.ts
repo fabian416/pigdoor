@@ -42,9 +42,16 @@ function criterion(
   };
 }
 
-/** Binary checks, no model, no cost. They prove the money goes where it was committed to go. */
+/**
+ * Binary checks, no model, no cost. They prove the money goes where it was
+ * committed to go. Integrity checks (committed condition, funding) always run;
+ * settlement checks (destination, amount, window) only when the escrow pays a
+ * third party (`settlement.role = escrow_funded`). When the release is itself
+ * the payment to the payee there is no settlement to check.
+ */
 export function checkDeterministic(condition: Condition, facts: EscrowFacts): CriterionResult[] {
   const out: CriterionResult[] = [];
+  const integrityOnly = condition.settlement.role === "payee_prepaid";
 
   const expectedHash = conditionHash(condition);
   if (!facts.committedConditionHash) {
@@ -60,6 +67,17 @@ export function checkDeterministic(condition: Condition, facts: EscrowFacts): Cr
       ),
     );
   }
+
+  const funded = facts.fundedAt !== null && Boolean(facts.fundingTxHash);
+  out.push(
+    criterion(
+      "escrow_funded",
+      funded,
+      "ESCROW_NOT_FUNDED",
+      funded ? `funding confirmed in ${facts.fundingTxHash}` : "escrow funding not confirmed on-chain",
+    ),
+  );
+  if (integrityOnly) return out;
 
   const sameReceiver = facts.milestoneReceiver === condition.receiver;
   out.push(
@@ -104,16 +122,6 @@ export function checkDeterministic(condition: Condition, facts: EscrowFacts): Cr
       inWindow
         ? "evidence submitted inside the committed window"
         : `evidence submitted at ${facts.evidenceSubmittedAt}, outside ${condition.window.notBefore} .. ${condition.window.notAfter}`,
-    ),
-  );
-
-  const funded = facts.fundedAt !== null && Boolean(facts.fundingTxHash);
-  out.push(
-    criterion(
-      "escrow_funded",
-      funded,
-      "ESCROW_NOT_FUNDED",
-      funded ? `funding confirmed in ${facts.fundingTxHash}` : "escrow funding not confirmed on-chain",
     ),
   );
 

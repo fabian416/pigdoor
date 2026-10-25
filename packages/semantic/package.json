@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/semantic",
+  "name": "@witness/semantic",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
-    "@workspace/core": "workspace:*",
+    "@witness/core": "workspace:*",
     "zod": "^4.6.7"
   }
 }

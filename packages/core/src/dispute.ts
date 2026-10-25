@@ -48,6 +48,13 @@ const QUESTIONS: Partial<Record<ReasonCodeT, string>> = {
   AMOUNT_OVER_MAX: "The milestone amount exceeds the committed maximum; do not release.",
   EVIDENCE_OUT_OF_WINDOW: "Evidence arrived outside the window; the refund path applies.",
   ESCROW_NOT_FUNDED: "Funding is not confirmed; nothing can be released.",
+  SCORE_BELOW_THRESHOLD: "The borrower's score is under policy; the loan should not be funded.",
+  KYC_INVALID: "The borrower's KYC is missing or expired; re-verify identity before funding.",
+  AMOUNT_OVER_LIMIT: "The requested amount exceeds the available credit line.",
+  AMOUNT_OVER_POLICY: "The requested amount exceeds the policy cap per disbursement.",
+  TASK_NOT_VISIBLE: "The photo does not show the task at all; ask for a photo of the right place or thing.",
+  TASK_NOT_DONE: "The photo shows the task not done; confirm with the person who asked for it.",
+  PHOTO_STAGED: "The photo shows signs of staging or reuse; ask for a fresh photo with context.",
 };
 
 export interface OpenDisputeInput {

@@ -1,40 +1,73 @@
 import { Keypair } from "@stellar/stellar-base";
-import { conditionHash, type Condition, type EscrowFacts, type EvidenceItem } from "../src/index.ts";
+import { conditionHash, type EscrowFacts, type EvidenceItem, type PurchaseCondition, type TaskCondition } from "../src/index.ts";
 
-export const marta = Keypair.random();
-export const corralon = Keypair.random();
+export const lendoor = Keypair.random();
+export const store = Keypair.random();
+export const parent = Keypair.random();
+export const sasha = Keypair.random();
+/** Kept for readability in older tests. */
+export const marta = lendoor;
+export const corralon = store;
 export const verifierKey = Keypair.random();
 export const stranger = Keypair.random();
 
 /** Circle USDC issuer on testnet. */
 export const USDC_ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
 
-export const condition: Condition = {
+/** Lendoor flow: credit for Ana's washing machine, paid to the store against an invoice. */
+export const condition: PurchaseCondition = {
   version: "1",
-  payer: marta.publicKey(),
-  receiver: corralon.publicKey(),
-  receiverName: "Corralón San Miguel",
+  kind: "purchase",
+  payer: lendoor.publicKey(),
+  receiver: store.publicKey(),
+  receiverName: "Casa Hogar Electro",
   asset: { code: "USDC", issuer: USDC_ISSUER },
-  maxAmount: "100",
-  category: "materiales de construcción",
-  items: ["cemento", "hierro"],
+  maxAmount: "290",
+  category: "electrodomésticos",
+  items: ["lavarropas"],
   window: { notBefore: "2026-10-25T00:00:00Z", notAfter: "2026-11-15T23:59:59Z" },
-  evidence: { type: "receipt_photo", mustShow: ["nombre del comercio", "fecha", "ítems", "total"] },
-  sourceText: "200 libres, y 100 para cemento y hierro en el Corralón San Miguel, antes del 15 de noviembre.",
+  settlement: { role: "escrow_funded" },
+  evidence: { type: "invoice_photo", mustShow: ["merchant name", "date", "items", "total"] },
+  sourceText: "Crédito de 290 USDC para que Ana compre un lavarropas en Casa Hogar Electro; se paga a la tienda contra factura.",
+};
+
+/** Piggy flow: Sasha's allowance when the bed is made. The release is the payment. */
+export const taskCondition: TaskCondition = {
+  version: "1",
+  kind: "task",
+  payer: parent.publicKey(),
+  receiver: sasha.publicKey(),
+  receiverName: "Sasha",
+  asset: { code: "USDC", issuer: USDC_ISSUER },
+  maxAmount: "2",
+  task: { title: "Hacer la cama", doneWhen: ["la cama está tendida", "la almohada está en su lugar", "no hay ropa sobre la cama"] },
+  window: { notBefore: "2026-10-25T00:00:00Z", notAfter: "2026-11-01T23:59:59Z" },
+  settlement: { role: "payee_prepaid" },
+  evidence: { type: "task_photo", mustShow: ["the task done"] },
+  sourceText: "2 USDC para Sasha cuando haga la cama, antes del domingo.",
 };
 
 export const goodFacts: EscrowFacts = {
-  milestoneReceiver: corralon.publicKey(),
-  milestoneAmount: "100",
+  milestoneReceiver: store.publicKey(),
+  milestoneAmount: "290",
   fundedAt: "2026-10-25T18:00:00Z",
   fundingTxHash: "8769aba1b652b01ee2aafc9083fd1a775722690757e560fb43bd49f98e4856cf",
   evidenceSubmittedAt: "2026-10-30T15:00:00Z",
   committedConditionHash: conditionHash(condition),
 };
 
+export const taskFacts: EscrowFacts = {
+  milestoneReceiver: sasha.publicKey(),
+  milestoneAmount: "2",
+  fundedAt: "2026-10-25T21:00:00Z",
+  fundingTxHash: "a0ed118a0a02ad87e09f0a743cc90d32199c931baf01b052cf49393e85719850",
+  evidenceSubmittedAt: "2026-10-26T18:30:00Z",
+  committedConditionHash: conditionHash(taskCondition),
+};
+
 export const receiptEvidence: EvidenceItem = {
-  type: "receipt_photo",
-  uri: "s3://evidence/ag-1/remito.jpg",
+  type: "invoice_photo",
+  uri: "s3://evidence/ana-1/factura.jpg",
   sha256: "a".repeat(64),
   mimeType: "image/jpeg",
   uploader: marta.publicKey(),

@@ -14,7 +14,12 @@ export const REASON_CODES = [
   "AMOUNT_OVER_MAX",
   "EVIDENCE_OUT_OF_WINDOW",
   "ESCROW_NOT_FUNDED",
-  // semantic verifier
+  // underwriter
+  "SCORE_BELOW_THRESHOLD",
+  "KYC_INVALID",
+  "AMOUNT_OVER_LIMIT",
+  "AMOUNT_OVER_POLICY",
+  // semantic verifier, purchases
   "MERCHANT_MISMATCH",
   "ITEMS_MISMATCH",
   "DOC_DATE_OUT_OF_WINDOW",
@@ -23,6 +28,10 @@ export const REASON_CODES = [
   "DOC_TOTAL_UNREADABLE",
   "DOC_CURRENCY_UNKNOWN",
   "DOCUMENT_ILLEGIBLE",
+  // semantic verifier, tasks
+  "TASK_NOT_VISIBLE",
+  "TASK_NOT_DONE",
+  "PHOTO_STAGED",
   "MODEL_OUTPUT_INVALID",
   "MODEL_REFUSED",
   "MODEL_ERROR",

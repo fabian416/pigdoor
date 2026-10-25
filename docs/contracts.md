@@ -6,21 +6,31 @@ verificador y lo puede comprobar cualquiera. Esquemas en `packages/core/src/cond
 
 ## 1. Condition (se congela antes de fondear)
 
+Dos tipos, distinguidos por `kind`. Campos comunes:
+
 ```json
 {
   "version": "1",
-  "payer": "G...",                      // quien manda la plata
-  "receiver": "G... | C...",            // quien cobra el hito
-  "receiverName": "Corralón San Miguel",
+  "kind": "purchase | task",
+  "payer": "G...",                      // quien pone la plata (Lendoor; el padre)
+  "receiver": "G... | C...",            // quien cobra el hito (la tienda; Sasha)
+  "receiverName": "Casa Hogar Electro",
   "asset": { "code": "USDC", "issuer": "G..." },
-  "maxAmount": "100",                   // decimal como string, máx. 7 decimales
-  "category": "materiales de construcción",
-  "items": ["cemento", "hierro"],
+  "maxAmount": "290",                   // decimal como string, máx. 7 decimales
   "window": { "notBefore": "ISO-8601", "notAfter": "ISO-8601" },
-  "evidence": { "type": "receipt_photo", "mustShow": ["merchant name", "date", "items", "total"] },
+  "settlement": { "role": "escrow_funded | payee_prepaid" },
+  "evidence": { "type": "invoice_photo | receipt_photo | delivery_note_photo | task_photo | document", "mustShow": ["..."] },
   "sourceText": "lo que escribió la persona, textual"
 }
 ```
+
+- `kind: "purchase"` agrega `category` e `items[]` (Lendoor: `["lavarropas"]`).
+- `kind: "task"` agrega `task: { title, doneWhen[] }` (Piggy: "Hacer la cama", 2-4 frases observables).
+- `settlement.role`: `escrow_funded` cuando el escrow le paga a un tercero (corren los dos verificadores);
+  `payee_prepaid` cuando la liberación es el pago a quien hizo la cosa (corre el semántico más la
+  integridad del escrow: condición comprometida y fondeo).
+
+Ejemplos: `examples/lendoor/condition.json`, `examples/piggy/condition.json`.
 
 `conditionHash = sha256(JCS(condition))` (RFC 8785). Ese hash va en el escrow (campo de
 descripción o metadata del hito) y en el sobre. Si cambia una coma, cambia el hash.
@@ -120,6 +130,7 @@ el resolutor lo re-verifique.
 |---|---|---|
 | `GET /health` | — | `{ ok, verifier (G...), model, autoRelease }` |
 | `POST /conditions` | `{ text, payer, receiver, asset, defaultDeadline }` | `{ condition, conditionHash, draft }` (503 sin credenciales de modelo) |
+| `POST /agreements/:id/underwrite` | `{ condition, facts: { score, kycOk, kycValidUntil, approvedLimit, outstanding, evaluatedAt }, policy: { minScore, maxDisbursement, version } }` | `{ id, envelope, anchor, fundable }` — el veredicto del underwriter de Lendoor, `milestoneId: "underwriting"`, firmado con `UNDERWRITER_SECRET` si está, antes de fondear |
 | `POST /agreements/:id/milestones/:m/verify` | `{ condition, evidence[], image \| reading, fx?, status? }` | `{ id, envelope, anchor, nextStep, status, release? }` |
 | `GET /envelopes/:sha256` | — | los bytes canónicos del sobre (destino del anclaje) |
 | `GET /envelopes` | — | `{ ids }` |

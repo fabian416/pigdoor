@@ -1,0 +1,11 @@
+{
+  "facts": {
+    "score": 712,
+    "kycOk": true,
+    "kycValidUntil": "2027-04-01T00:00:00Z",
+    "approvedLimit": "350",
+    "outstanding": "0",
+    "evaluatedAt": "2026-10-25T20:00:00Z"
+  },
+  "policy": { "minScore": 600, "maxDisbursement": "500", "version": "lendoor-1" }
+}

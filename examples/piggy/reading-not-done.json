@@ -1,0 +1,10 @@
+{
+  "sceneDescription": "The same bedroom; the blanket is bunched at the foot of the bed, clothes and a backpack lie on the mattress.",
+  "taskVisible": "PASS",
+  "taskDone": "FAIL",
+  "doneWhenObserved": [],
+  "stagingSigns": [],
+  "photoQuality": 85,
+  "confidence": 93,
+  "notes": "Bed clearly unmade."
+}

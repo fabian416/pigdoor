@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { decide, type Condition } from "@workspace/core";
+import { decide, type Condition } from "@witness/core";
 import { SYSTEM_PROMPT, evaluateDocument, type DocumentReading } from "../src/semantic.ts";
 import { fakeModel } from "./fake-model.ts";
 
 const condition: Condition = {
   version: "1",
+  kind: "purchase",
+  settlement: { role: "escrow_funded" },
   payer: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   receiver: "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
   receiverName: "Corralón San Miguel",
