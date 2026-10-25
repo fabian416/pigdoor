@@ -57,9 +57,9 @@ describe("dispute case", () => {
   it("a challenge against an ALLOW still produces a case with a generic question", () => {
     const env = envelopeWith([], 90);
     expect(env.verdict.decision).toBe("ALLOW");
-    const c = openDispute({ condition, envelope: env, openedAt: "2026-10-30T16:00:00Z", openedBy: "payer", trigger: "CHALLENGE", evidenceLinks: [], challengeNote: "Ese remito no es del corralón" });
+    const c = openDispute({ condition, envelope: env, openedAt: "2026-10-30T16:00:00Z", openedBy: "payer", trigger: "CHALLENGE", evidenceLinks: [], challengeNote: "Esa factura no es de la tienda" });
     expect(c.questions).toHaveLength(1);
-    expect(c.challengeNote).toContain("corralón");
+    expect(c.challengeNote).toContain("tienda");
   });
 
   it("carries the signed envelope untouched, so the resolver can re-verify it", () => {

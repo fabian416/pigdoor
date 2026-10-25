@@ -148,7 +148,7 @@ describe("verifier service", () => {
   it("a challenge opens a case for the resolver and disputes the milestone", async () => {
     const { post, app, escrow } = harness();
     const verified = await (await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: goodReading })).json();
-    const res = await post(`/envelopes/${verified.id}/challenge`, { openedBy: "payer", note: "Ese remito no es del corralón", condition });
+    const res = await post(`/envelopes/${verified.id}/challenge`, { openedBy: "payer", note: "Esa factura no es de la tienda", condition });
     expect(res.status).toBe(200);
     const { caseId, case: c } = await res.json();
     expect(c.trigger).toBe("CHALLENGE");

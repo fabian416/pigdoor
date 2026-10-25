@@ -9,29 +9,29 @@ const condition: Condition = {
   settlement: { role: "escrow_funded" },
   payer: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   receiver: "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-  receiverName: "Corralón San Miguel",
+  receiverName: "Casa Hogar Electro",
   asset: { code: "USDC", issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" },
-  maxAmount: "100",
-  category: "materiales de construcción",
-  items: ["cemento", "hierro"],
+  maxAmount: "290",
+  category: "electrodomésticos",
+  items: ["lavarropas"],
   window: { notBefore: "2026-10-25T00:00:00Z", notAfter: "2026-11-15T23:59:59Z" },
-  evidence: { type: "receipt_photo", mustShow: ["merchant name", "date", "items", "total"] },
-  sourceText: "100 para cemento y hierro en el Corralón San Miguel, antes del 15 de noviembre.",
+  evidence: { type: "invoice_photo", mustShow: ["merchant name", "date", "items", "total"] },
+  sourceText: "100 para cemento y hierro en el Casa Hogar Electro, antes del 15 de noviembre.",
 };
 
 const image = { base64: "AAAA", mediaType: "image/jpeg" as const };
 
 const goodReading: DocumentReading = {
-  merchantNameOnDocument: "Corralon San Miguel - Materiales",
+  merchantNameOnDocument: "CASA HOGAR ELECTRO S.R.L.",
   merchantMatches: "PASS",
   dateOnDocument: "2026-10-30",
-  itemsOnDocument: ["Cemento x10 bolsas", "Hierro 8mm x 20"],
+  itemsOnDocument: ["Lavarropas automatico 8kg", "Envio"],
   itemsMatch: "PASS",
   totalOnDocument: "118500",
   currencyOnDocument: "ARS",
   legibility: 85,
   confidence: 90,
-  notes: "Handwritten delivery note, stamped.",
+  notes: "Printed invoice type B, stamped.",
 };
 
 const byId = (criteria: { id: string; result: string; code: string; mandatory: boolean }[]) =>
@@ -44,7 +44,7 @@ describe("semantic verifier: the model reads, the rules decide", () => {
     const c = byId(outcome.criteria);
 
     expect(calls[0].hasImage).toBe(true);
-    expect(calls[0].text).toContain("Corralón San Miguel");
+    expect(calls[0].text).toContain("Casa Hogar Electro");
     expect(calls[0].text).not.toContain("100"); // the model never learns the maximum
     expect(c.doc_merchant_matches.result).toBe("PASS");
     expect(c.doc_items_match.result).toBe("PASS");
@@ -57,13 +57,14 @@ describe("semantic verifier: the model reads, the rules decide", () => {
   it("converts the total when a rate is supplied and blocks when it exceeds the maximum", () => {
     const within = byId(assessReading(condition, goodReading, { currency: "ARS", unitsPerAsset: 1450 }));
     expect(within.doc_total_within_max).toMatchObject({ result: "PASS", mandatory: true });
-    const over = byId(assessReading(condition, goodReading, { currency: "ARS", unitsPerAsset: 1000 }));
+    // 118500 ARS at 350 per USDC = 338.57 USDC, over the 290 cap.
+    const over = byId(assessReading(condition, goodReading, { currency: "ARS", unitsPerAsset: 350 }));
     expect(over.doc_total_within_max).toMatchObject({ result: "FAIL", code: "DOC_TOTAL_OVER_MAX" });
   });
 
   it("rejection path: receipt from another shop", async () => {
     const { model } = fakeModel({
-      value: { ...goodReading, merchantNameOnDocument: "Almacén Don Pepe", merchantMatches: "FAIL", itemsOnDocument: ["fideos", "yerba"], itemsMatch: "FAIL" },
+      value: { ...goodReading, merchantNameOnDocument: "Supermercado El Trebol", merchantMatches: "FAIL", itemsOnDocument: ["Alimentos varios", "Bebidas"], itemsMatch: "FAIL" },
     });
     const outcome = await evaluateDocument(model, { condition, image });
     expect(outcome.score).toBeLessThanOrEqual(30);

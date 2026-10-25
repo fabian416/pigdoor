@@ -5,9 +5,6 @@ export const lendoor = Keypair.random();
 export const store = Keypair.random();
 export const parent = Keypair.random();
 export const sasha = Keypair.random();
-/** Kept for readability in older tests. */
-export const marta = lendoor;
-export const corralon = store;
 export const verifierKey = Keypair.random();
 export const stranger = Keypair.random();
 
@@ -70,6 +67,6 @@ export const receiptEvidence: EvidenceItem = {
   uri: "s3://evidence/ana-1/factura.jpg",
   sha256: "a".repeat(64),
   mimeType: "image/jpeg",
-  uploader: marta.publicKey(),
+  uploader: store.publicKey(),
   createdAt: "2026-10-30T15:00:00Z",
 };

@@ -37,14 +37,33 @@ so their tooling can read ours. Anyone can verify the signature.
 | `scripts/demo.sh` | Happy path, rejection path, independent re-verification. Offline by default; pass a photo to go live. |
 | `.github/workflows/ci.yml` | Typecheck, tests and the offline demo on every push. |
 
+## For the frontend and the product backend
+
+Everything the UI shows comes from the verifier service; the JSON shapes are in
+[`docs/contracts.md`](docs/contracts.md). Call sequence per flow:
+
+**Lendoor · Ana's washing machine**
+1. `POST /conditions` with Ana's request text, the store's address, Lendoor's payer address, `settlementRole: "escrow_funded"` → `condition` + `conditionHash`. Show the text next to the structured condition.
+2. `POST /agreements/:id/underwrite` with the condition, the risk engine's facts and the policy → `fundable` and the underwriter's envelope. Show score, KYC, line, policy as four checks. Only if `fundable` the backend creates and funds the Trustless Work escrow, writing `conditionHash` in the milestone description.
+3. The store uploads the invoice; the backend posts `POST /agreements/:id/milestones/:m/verify` with the condition, the evidence item (sha256 of the photo) and the photo → `envelope`, `anchor`, `nextStep`. Show the deterministic and the semantic criteria side by side, the decision, and the anchor link.
+4. On `RELEASE` the backend (or the service with `AUTO_RELEASE=1`) releases the milestone; show the tx hash. On `DENY` show `verdict.reasons`; on `ESCALATE` show the dispute case.
+5. Funder view: `GET /envelopes` and `GET /envelopes/:sha256`, each re-verifiable with `verifyEnvelope()` in the browser or `verify-cli.ts`.
+
+**Piggy · Sasha's bed**
+1. `POST /conditions` with the parent's text, Sasha's address, `settlementRole: "payee_prepaid"`.
+2. Backend creates and funds the 2 USDC milestone with `conditionHash`.
+3. Sasha's photo → `verify` → one semantic verifier (plus the escrow integrity checks) → `ALLOW` releases to Sasha, `DENY` shows why, `REVIEW` goes to the parent as dispute resolver.
+
+Readings instead of photos are accepted only with `ACCEPT_READINGS=1` (demo mode, no model credentials needed); the example readings live in `examples/`.
+
 ## Run the verifier service
 
 ```bash
-ACCEPT_READINGS=1 pnpm --filter @witness/verifier-service start   # demo mode: http://localhost:8787, in-memory escrow seeded with examples/facts.json
+ACCEPT_READINGS=1 pnpm --filter @witness/verifier-service start   # demo mode: http://localhost:8787, in-memory escrow seeded with examples/lendoor/facts.json
 
 curl -s localhost:8787/health
 curl -s -X POST localhost:8787/agreements/demo/milestones/1/verify -H 'content-type: application/json' \
-  -d "$(node -e 'const r=require;console.log(JSON.stringify({condition:r("./examples/condition.json"),evidence:r("./examples/evidence.json"),reading:r("./examples/reading-good.json")}))')"
+  -d "$(node -e 'const r=require;console.log(JSON.stringify({condition:r("./examples/lendoor/condition.json"),evidence:r("./examples/lendoor/evidence.json"),reading:r("./examples/lendoor/reading-good.json")}))')"
 ```
 
 | Env | Meaning | Default |
@@ -62,7 +81,6 @@ curl -s -X POST localhost:8787/agreements/demo/milestones/1/verify -H 'content-t
 
 Why a separate process: if the service that funds the escrow also signed releases, the payer would be releasing to itself. Separate keys make the role split checkable on-chain.
 | `docs/contracts.md` | The three JSON objects the backend and the verifier exchange. |
-| `examples/` | A demo condition, escrow facts, evidence and two model readings (good receipt, wrong shop). |
 
 ## Run
 
