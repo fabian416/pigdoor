@@ -1,0 +1,10 @@
+[
+  {
+    "type": "receipt_photo",
+    "uri": "s3://evidence/ag-1/remito.jpg",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mimeType": "image/jpeg",
+    "uploader": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "createdAt": "2026-10-30T15:00:00Z"
+  }
+]
