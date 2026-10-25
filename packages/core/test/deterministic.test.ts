@@ -8,8 +8,16 @@ const byId = (results: ReturnType<typeof checkDeterministic>) =>
 describe("deterministic verifier", () => {
   it("passes every check on the happy path", async () => {
     const results = await deterministicVerifier.verify({ condition, facts: goodFacts });
-    expect(results).toHaveLength(4);
+    expect(results).toHaveLength(5);
     expect(results.every((r) => r.result === "PASS" && r.code === "OK" && r.mandatory)).toBe(true);
+  });
+
+  it("binds the verification to the condition the escrow committed to", () => {
+    const swapped = { ...condition, maxAmount: "1000" };
+    const r = byId(checkDeterministic(swapped, goodFacts));
+    expect(r.condition_matches_escrow).toMatchObject({ result: "FAIL", code: "CONDITION_MISMATCH" });
+    const uncommitted = byId(checkDeterministic(condition, { ...goodFacts, committedConditionHash: undefined }));
+    expect(uncommitted.condition_matches_escrow).toMatchObject({ result: "UNKNOWN", code: "CONDITION_NOT_COMMITTED" });
   });
 
   it("fails when the milestone pays someone else", () => {

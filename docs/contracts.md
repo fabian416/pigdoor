@@ -36,11 +36,15 @@ Flujo: texto → `draftCondition()` (modelo) → la app pone `payer`, `receiver`
   "milestoneAmount": "100",             // cuánto paga el hito
   "fundedAt": "ISO-8601 | null",        // confirmación de funding on-chain
   "fundingTxHash": "hex",
-  "evidenceSubmittedAt": "ISO-8601"     // cuándo el proveedor subió la evidencia
+  "evidenceSubmittedAt": "ISO-8601",    // cuándo el proveedor subió la evidencia
+  "committedConditionHash": "hex"       // el conditionHash escrito en el escrow al crearlo
 }
 ```
 
-El verificador determinístico compara esto con la condición: destino, tope, ventana, fondeo.
+El verificador determinístico compara esto con la condición: **condición comprometida**, destino,
+tope, ventana, fondeo. `committedConditionHash` es el hash que el backend escribió en el escrow
+(descripción del hito) al crearlo, leído de vuelta del escrow: así nadie puede presentar después
+una condición más laxa. Sin ese hash el veredicto es REVIEW, nunca ALLOW.
 
 ## 3. VerificationEnvelope (salida del verificador)
 
@@ -127,7 +131,7 @@ hechos del escrow por su cuenta (`EscrowClient`), nunca confía en los que le ma
 
 ## Códigos de razón
 
-`OK · NO_CRITERIA · DESTINATION_MISMATCH · AMOUNT_OVER_MAX · EVIDENCE_OUT_OF_WINDOW · ESCROW_NOT_FUNDED ·
+`OK · NO_CRITERIA · CONDITION_NOT_COMMITTED · CONDITION_MISMATCH · DESTINATION_MISMATCH · AMOUNT_OVER_MAX · EVIDENCE_OUT_OF_WINDOW · ESCROW_NOT_FUNDED ·
 MERCHANT_MISMATCH · ITEMS_MISMATCH · DOC_DATE_OUT_OF_WINDOW · DOC_DATE_UNREADABLE · DOC_TOTAL_OVER_MAX ·
 DOC_TOTAL_UNREADABLE · DOC_CURRENCY_UNKNOWN · DOCUMENT_ILLEGIBLE · MODEL_OUTPUT_INVALID · MODEL_REFUSED ·
 MODEL_ERROR · LOW_CONFIDENCE`
