@@ -1,5 +1,5 @@
 import { Keypair } from "@stellar/stellar-base";
-import type { Condition, EscrowFacts, EvidenceItem } from "../src/index.ts";
+import { conditionHash, type Condition, type EscrowFacts, type EvidenceItem } from "../src/index.ts";
 
 export const marta = Keypair.random();
 export const corralon = Keypair.random();
@@ -29,6 +29,7 @@ export const goodFacts: EscrowFacts = {
   fundedAt: "2026-10-25T18:00:00Z",
   fundingTxHash: "8769aba1b652b01ee2aafc9083fd1a775722690757e560fb43bd49f98e4856cf",
   evidenceSubmittedAt: "2026-10-30T15:00:00Z",
+  committedConditionHash: conditionHash(condition),
 };
 
 export const receiptEvidence: EvidenceItem = {

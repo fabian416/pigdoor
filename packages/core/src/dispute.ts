@@ -42,6 +42,8 @@ const QUESTIONS: Partial<Record<ReasonCodeT, string>> = {
   MODEL_ERROR: "The automated reading errored; read the document by hand or retry.",
   LOW_CONFIDENCE: "The automated reading was not confident; read the document by hand.",
   NO_CRITERIA: "No checks ran; verify the evidence from scratch.",
+  CONDITION_NOT_COMMITTED: "The escrow carries no condition hash; confirm with the payer which condition applies before anything else.",
+  CONDITION_MISMATCH: "The condition presented is not the one the escrow committed to; do not release, investigate the backend.",
   DESTINATION_MISMATCH: "The milestone pays an address other than the committed one; do not release.",
   AMOUNT_OVER_MAX: "The milestone amount exceeds the committed maximum; do not release.",
   EVIDENCE_OUT_OF_WINDOW: "Evidence arrived outside the window; the refund path applies.",

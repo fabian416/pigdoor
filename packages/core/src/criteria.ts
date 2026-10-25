@@ -8,6 +8,8 @@ export const REASON_CODES = [
   "OK",
   "NO_CRITERIA",
   // deterministic verifier
+  "CONDITION_NOT_COMMITTED",
+  "CONDITION_MISMATCH",
   "DESTINATION_MISMATCH",
   "AMOUNT_OVER_MAX",
   "EVIDENCE_OUT_OF_WINDOW",

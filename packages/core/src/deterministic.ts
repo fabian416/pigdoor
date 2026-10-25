@@ -1,5 +1,5 @@
 import { toStroops } from "./amount.ts";
-import type { Condition } from "./condition.ts";
+import { conditionHash, type Condition } from "./condition.ts";
 import type { CriterionResult, Verifier } from "./criteria.ts";
 
 /**
@@ -16,6 +16,12 @@ export interface EscrowFacts {
   fundingTxHash?: string;
   /** When the beneficiary submitted the evidence. */
   evidenceSubmittedAt: string;
+  /**
+   * The condition hash recorded on the escrow when it was created (e.g. in the
+   * milestone description). Binds the verification to what the payer actually
+   * committed to, so nobody can swap in a laxer condition afterwards.
+   */
+  committedConditionHash?: string;
 }
 
 const NAME = "deterministic";
@@ -39,6 +45,21 @@ function criterion(
 /** Binary checks, no model, no cost. They prove the money goes where it was committed to go. */
 export function checkDeterministic(condition: Condition, facts: EscrowFacts): CriterionResult[] {
   const out: CriterionResult[] = [];
+
+  const expectedHash = conditionHash(condition);
+  if (!facts.committedConditionHash) {
+    out.push(criterion("condition_matches_escrow", null, "CONDITION_NOT_COMMITTED", "escrow carries no condition hash"));
+  } else {
+    const same = facts.committedConditionHash === expectedHash;
+    out.push(
+      criterion(
+        "condition_matches_escrow",
+        same,
+        "CONDITION_MISMATCH",
+        same ? "escrow commits to this exact condition" : `escrow commits to ${facts.committedConditionHash}, got ${expectedHash}`,
+      ),
+    );
+  }
 
   const sameReceiver = facts.milestoneReceiver === condition.receiver;
   out.push(
