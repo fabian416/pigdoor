@@ -1,0 +1,128 @@
+# Contratos de datos entre el backend y el verificador
+
+Tres objetos JSON. Los dos primeros los produce el backend (o la app); el tercero lo produce el
+verificador y lo puede comprobar cualquiera. Esquemas en `packages/core/src/condition.ts`,
+`deterministic.ts` y `envelope.ts`; ejemplos en `examples/`.
+
+## 1. Condition (se congela antes de fondear)
+
+```json
+{
+  "version": "1",
+  "payer": "G...",                      // quien manda la plata
+  "receiver": "G... | C...",            // quien cobra el hito
+  "receiverName": "Corralón San Miguel",
+  "asset": { "code": "USDC", "issuer": "G..." },
+  "maxAmount": "100",                   // decimal como string, máx. 7 decimales
+  "category": "materiales de construcción",
+  "items": ["cemento", "hierro"],
+  "window": { "notBefore": "ISO-8601", "notAfter": "ISO-8601" },
+  "evidence": { "type": "receipt_photo", "mustShow": ["merchant name", "date", "items", "total"] },
+  "sourceText": "lo que escribió la persona, textual"
+}
+```
+
+`conditionHash = sha256(JCS(condition))` (RFC 8785). Ese hash va en el escrow (campo de
+descripción o metadata del hito) y en el sobre. Si cambia una coma, cambia el hash.
+
+Flujo: texto → `draftCondition()` (modelo) → la app pone `payer`, `receiver`, `asset` →
+`bindCondition()` → `conditionHash()`. El modelo nunca elige direcciones.
+
+## 2. EscrowFacts (lo que el backend lee del escrow al momento de verificar)
+
+```json
+{
+  "milestoneReceiver": "G...",          // a quién paga el hito, leído del escrow
+  "milestoneAmount": "100",             // cuánto paga el hito
+  "fundedAt": "ISO-8601 | null",        // confirmación de funding on-chain
+  "fundingTxHash": "hex",
+  "evidenceSubmittedAt": "ISO-8601"     // cuándo el proveedor subió la evidencia
+}
+```
+
+El verificador determinístico compara esto con la condición: destino, tope, ventana, fondeo.
+
+## 3. VerificationEnvelope (salida del verificador)
+
+Nombres de campo = `VerificationEnvelope` de Trustless Work (agentic-escrow-research), más
+`conditionHash`.
+
+```json
+{
+  "agreementId": "C...",                // contract id del escrow
+  "milestoneId": "1",
+  "verifier": "G...",                   // clave pública del verificador (releaseSigner)
+  "verifierType": "automated_agent",
+  "criteria": [ { "id", "verifier", "result": "PASS|FAIL|UNKNOWN", "code", "reason", "mandatory" } ],
+  "evidence": [ { "type", "uri", "sha256", "mimeType", "uploader", "createdAt" } ],
+  "proofHash": "sha256(JCS({conditionHash, evidence: [sha256...] ordenados}))",
+  "verdict": { "decision": "ALLOW|DENY|REVIEW", "reasons": ["OK"], "semanticScore": 85, "policyVersion": "1" },
+  "timestamp": "ISO-8601",
+  "conditionHash": "hex",
+  "signature": "base64(ed25519(verifier, 'conditional-release-verdict-v1:' + sha256(JCS(sobre sin signature))))"
+}
+```
+
+Qué hace el backend con cada decisión:
+
+| decision | acción |
+|---|---|
+| `ALLOW` | el servicio verificador firma el release del hito; el sobre se guarda (y se ancla, si hay IPFS) |
+| `DENY` | no se toca nada; se muestra `reasons` al proveedor; puede reintentar con otra evidencia dentro de la ventana |
+| `REVIEW` | se escala a `disputeResolvers`; nada se mueve |
+
+`verifyEnvelope(json)` recalcula `proofHash` y verifica la firma contra `verifier`. Lo puede correr
+el frontend, un indexer o un tercero.
+
+## 4. Anclaje del sobre (lo que se escribe en el escrow)
+
+El backend guarda el sobre (IPFS o storage público) y escribe en el campo `evidence` del hito, con
+`change-milestone-status`, una sola línea:
+
+```
+verdict-v1 sha256=<sha256 de los bytes canónicos del sobre> uri=ipfs://<cid> | https://...
+```
+
+`anchorReference(envelope, uri)` y `formatAnchorReference()` la generan. Cualquiera la lee del
+escrow, la pasa a `resolveEnvelope(ref, { expect: { agreementId, milestoneId, conditionHash, verifier } })`
+y obtiene: el sobre, o la razón exacta por la que no vale (hash distinto, firma inválida, otro hito...).
+CLI: `node packages/semantic/src/verify-cli.ts "verdict-v1 sha256=... uri=..."`.
+
+## 5. Ciclo de vida del hito (`nextStep()`)
+
+| Estado | Veredicto | Ahora | Acción | Quién |
+|---|---|---|---|---|
+| FUNDED | ALLOW | antes de `notAfter` | `RELEASE` | verificador |
+| FUNDED | REVIEW | antes | `ESCALATE` → DISPUTED | verificador |
+| FUNDED | DENY | antes | `WAIT` (el proveedor puede reintentar) | — |
+| FUNDED o DISPUTED | cualquiera o ninguno | **después de `notAfter`** | `REFUND` | **cualquiera** |
+| DISPUTED | — | antes | `WAIT` | dispute resolver |
+| RELEASED / REFUNDED | — | — | `NONE` | — |
+
+La fila en negrita es la regla "un verificador caído no deja la plata trabada": el vencimiento le
+gana a todo veredicto, incluso a un ALLOW que nadie ejecutó. `refundGraceSeconds` da margen para
+ejecutar el release.
+
+## 6. Caso de disputa (`openDispute()`)
+
+Cuando hay REVIEW o alguien impugna: `{ agreementId, milestoneId, openedAt, openedBy, trigger, condition,
+envelope, modelReading?, evidenceLinks[], questions[], challengeNote? }`. Las `questions` salen de los
+códigos abiertos (ej. `DOCUMENT_ILLEGIBLE` → "pedir una foto más clara"). El sobre va intacto para que
+el resolutor lo re-verifique.
+
+## Códigos de razón
+
+`OK · NO_CRITERIA · DESTINATION_MISMATCH · AMOUNT_OVER_MAX · EVIDENCE_OUT_OF_WINDOW · ESCROW_NOT_FUNDED ·
+MERCHANT_MISMATCH · ITEMS_MISMATCH · DOC_DATE_OUT_OF_WINDOW · DOC_DATE_UNREADABLE · DOC_TOTAL_OVER_MAX ·
+DOC_TOTAL_UNREADABLE · DOC_CURRENCY_UNKNOWN · DOCUMENT_ILLEGIBLE · MODEL_OUTPUT_INVALID · MODEL_REFUSED ·
+MODEL_ERROR · LOW_CONFIDENCE`
+
+## Regla de decisión (`decide()`, versión de política "1")
+
+1. Sin criterios → `REVIEW`.
+2. Algún criterio obligatorio en `FAIL` → `DENY` con todos los códigos.
+3. Algún obligatorio en `UNKNOWN` → `REVIEW`.
+4. Score semántico < 40 → `DENY`; entre 40 y 69 → `REVIEW`; ≥ 70 → `ALLOW`.
+
+El total del remito en otra moneda (ARS) es informativo salvo que se pase un tipo de cambio: el
+monto que de verdad se paga ya está acotado on-chain por el chequeo determinístico.

@@ -1,0 +1,12 @@
+{
+  "merchantNameOnDocument": "Almacén Don Pepe",
+  "merchantMatches": "FAIL",
+  "dateOnDocument": "2026-10-30",
+  "itemsOnDocument": ["Fideos x2", "Yerba 1kg"],
+  "itemsMatch": "FAIL",
+  "totalOnDocument": "9800",
+  "currencyOnDocument": "ARS",
+  "legibility": 90,
+  "confidence": 92,
+  "notes": "Printed grocery ticket."
+}
