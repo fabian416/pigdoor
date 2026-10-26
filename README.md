@@ -4,6 +4,31 @@
 
 > **Proof before payment: money that moves only when the condition is proven.**
 > Piggy Wallet × Lendoor at [HackMeridian 2026](https://www.hackmeridian.com/build), Lisbon, 25–26 October · Scale category.
+> Team: Lucho (CEO, Lendoor), Fabián Díaz (CTO, Lendoor), Sofía Vásquez (CEO, Piggy Wallet).
+
+## In 60 seconds, for reviewers
+
+- **What it is.** A verification layer for Trustless Work escrows on Stellar: a condition is frozen and
+  committed by hash before funding; a photo is read by Claude under a strict schema; deterministic code
+  decides; the verdict is signed by the same key that releases the escrow and anchored in the milestone.
+- **What runs today.** Public verifier `https://hackmeridian.api.lendoor.xyz` (`/health`), demo
+  `https://hackmeridian.lendoor.xyz`, and the page in `demo/`.
+- **What is on-chain** (Stellar testnet, USDC): escrow
+  [`CDGQRKMQ…U6WJ7W`](https://stellar.expert/explorer/testnet/contract/CDGQRKMQHLROLX6L6FW6VQQI7BQXRCKQ7IDJUN5QZLUTZQR2E3U6WJ7W)
+  deployed with the condition hash, funded, verdict ALLOW on a real invoice anchored in the milestone,
+  approved and released by the verifier key; a refused attempt (DENY, anchored, refunded through the
+  dispute resolver); and the Piggy escrow
+  [`CCTXZHRD…J7UY4H`](https://stellar.expert/explorer/testnet/contract/CCTXZHRDGY5TSIUONXZK6MVKONPXONKM4GMXOIEJHH4UVL323YJ7UY4H)
+  deployed and funded. Every transaction is linked in [On-chain evidence](#on-chain-evidence-stellar-testnet-trustless-work-multi-release-escrows-usdc).
+- **Verify it yourself, one command, no trust in us:**
+  ```bash
+  pnpm install && node packages/semantic/src/verify-cli.ts "verdict-v1 sha256=839df0a154d7056b76c61a4eade55915237d85d0e4c1e4558672b6407cc3b7f5 uri=https://hackmeridian.api.lendoor.xyz/envelopes/839df0a154d7056b76c61a4eade55915237d85d0e4c1e4558672b6407cc3b7f5"
+  ```
+  It fetches the anchored envelope, recomputes its hash, checks the ed25519 signature against the
+  verifier address and prints the ten criteria. `pnpm test` runs 113 tests; `./scripts/demo.sh` runs both
+  flows offline.
+- **Built here.** Every commit in this repository, 25–26 October (Apache-2.0, DCO). Prior work by the
+  same team is listed below and none of its code is used.
 
 ## The problem
 
@@ -228,6 +253,18 @@ Sasha's photo → `verify` → `ALLOW` pays Sasha, `DENY` shows why, `REVIEW` go
 
 Rules for the backend: the milestone status comes from the escrow, never from the UI; never execute a
 release from a service whose `/health` says `acceptReadings: true`.
+
+## Where to look, by rubric
+
+| Criterion | Where it is |
+|---|---|
+| Ecosystem alignment | Trustless Work escrows (their research vocabulary for the envelope), Stellar testnet USDC, two SCF projects adopting it (Piggy Wallet #41, Lendoor #45); roadmap on OpenZeppelin Stellar smart accounts in `docs/contracts.md` §8. |
+| User value | Piggy: allowance paid on proof of the chore. Lendoor: partner capital paid to the store on proof of the invoice, with a verdict the funder can audit without trusting Lendoor. Both flows in `examples/`. |
+| Technical | `packages/core` (hashing, criteria, lifecycle, signed envelope), `packages/semantic` (model reads, code decides, injection tests), `services/verifier` (service, Trustless Work clients), 113 tests, CI, live run scripts. |
+| Innovation | The verdict is signed by the escrow's own release key and anchored in the milestone, so the release and the reason for it are the same verifiable object; the model never sees the cap or the policy. |
+| Progress during the hack | Git history, first commit 25 Oct 13:56 UTC; on-chain evidence produced 26 Oct 09:40–10:00 UTC. |
+| Market | Two live products with users and SCF grants on both sides of the same gap. |
+| UX | `demo/` and the demo site: photo in, what the model read next to what the code decided, verdict and envelope out. |
 
 ## License
 
