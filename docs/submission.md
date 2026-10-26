@@ -12,7 +12,7 @@ the verdict with the key that releases the escrow, and anchors it on-chain.
 
 **Team:** Lucho (@LuchoLeonel, CEO Lendoor), Fabián Díaz (@fabian416, CTO Lendoor), Sofía Vásquez (CEO Piggy Wallet).
 
-**Repository:** https://github.com/fabian416/witness (Apache-2.0; DCO sign-off on 21 of 23 commits, see
+**Repository:** https://github.com/fabian416/witness (Apache-2.0, every commit DCO signed-off, see
 README › License).
 
 **Demo:** https://hackmeridian.lendoor.xyz (Lendoor's testnet app, prior work, with the Witness verification

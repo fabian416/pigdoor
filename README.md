@@ -30,8 +30,8 @@
   It fetches the anchored envelope, recomputes its hash, checks the ed25519 signature against the
   verifier address and prints the criteria tally (10/10). `pnpm test` runs 113 tests; `./scripts/demo.sh`
   runs both flows offline.
-- **Built here.** Every commit in this repository, 25–26 October (Apache-2.0; the maintainer's 21 commits
-  carry a DCO sign-off, Lucho's two do not yet, see License). Prior work by the same team is listed below; none of its code is in this repository.
+- **Built here.** Every commit in this repository, 25–26 October (Apache-2.0, every commit DCO signed-off,
+  see License). Prior work by the same team is listed below; none of its code is in this repository.
 
 ## The problem
 
@@ -288,5 +288,5 @@ release from a service whose `/health` says `acceptReadings: true`.
 
 ## License
 
-Apache-2.0. The maintainer's 21 commits carry a DCO `Signed-off-by`; Lucho's two (`b71599d`, the demo page,
-and `cff8df1`, the Gemini provider) were pushed without the trailer and he signs them off retroactively.
+Apache-2.0. Every commit carries a DCO `Signed-off-by`; on Lucho's two (the demo page and the Gemini
+provider) the sign-off was added by the maintainer when integrating them.
