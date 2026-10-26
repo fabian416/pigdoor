@@ -1,0 +1,12 @@
+{
+  "merchantNameOnDocument": "Supermercado El Trebol",
+  "merchantMatches": "FAIL",
+  "dateOnDocument": "2026-10-27",
+  "itemsOnDocument": ["Alimentos varios", "Bebidas"],
+  "itemsMatch": "FAIL",
+  "totalOnDocument": "86500",
+  "currencyOnDocument": "ARS",
+  "legibility": 95,
+  "confidence": 96,
+  "notes": "Supermarket ticket."
+}

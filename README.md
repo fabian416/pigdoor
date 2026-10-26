@@ -34,6 +34,7 @@ so their tooling can read ours. Anyone can verify the signature.
 | `packages/semantic` | Semantic verifiers (Claude with structured outputs): invoice reading for purchases, task-photo reading for chores; the trigger agent that turns the payer's words into a condition; `cli.ts` (run one verdict) and `verify-cli.ts` (re-verify an anchored envelope). |
 | `examples/lendoor`, `examples/piggy` | The two flows from the deck: Ana's washing machine (290 USDC, invoice, underwriting) and Sasha's bed (2 USDC, photo). |
 | `services/verifier` | The verifier as its own process with its own key: `POST /agreements/:id/milestones/:m/verify` runs both verifiers, signs the envelope, serves it content-addressed at `GET /envelopes/:sha256` (the anchor target), writes the anchor line into the escrow and releases or escalates. The escrow provider sits behind an interface: in-memory for the demo, Trustless Work V2 to be wired after the integration spike. |
+| `demo` | One page: camera → model readings → rules → signed envelope. No wallet, no login. React, two dependencies. Colour tokens lifted from lendoor-stellar so it reads as the same family; no code from it. |
 | `scripts/demo.sh` | Happy path, rejection path, independent re-verification. Offline by default; pass a photo to go live. |
 | `.github/workflows/ci.yml` | Typecheck, tests and the offline demo on every push. |
 
@@ -87,8 +88,12 @@ node packages/semantic/src/cli.ts --condition examples/lendoor/condition.json --
 
 Built by people from Lendoor and Piggy. Earlier work by the same team: credit delegation in
 [lendoor-stellar](https://github.com/LuchoLeonel/lendoor-stellar) (Soroban) and
-[lenclaw](https://github.com/fabian416/lenclaw) (agent credit on Base, March 2026). None of that
-code is used here; the "model proposes, rules decide" pattern comes from lenclaw.
+[lenclaw](https://github.com/fabian416/lenclaw) (agent credit on Base, March 2026).
+
+No code from either is used here. The one thing carried over is presentational: `demo/` copies
+the colour tokens and the type pairing from lendoor-stellar's stylesheet, so the demo reads as
+part of the same family. The page itself is new. The "model proposes, rules decide" pattern comes
+from lenclaw.
 
 ## License
 

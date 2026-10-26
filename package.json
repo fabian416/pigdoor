@@ -13,5 +13,11 @@
     "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
-  }
+  },
+  "pnpm": {
+    "overrides": {
+      "baseline-browser-mapping": "2.11.32"
+    }
+  },
+  "packageManager": "pnpm@10.33.0"
 }

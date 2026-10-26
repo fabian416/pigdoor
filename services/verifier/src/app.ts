@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { z } from "zod";
 import {
   ConditionSchema,
@@ -55,6 +56,12 @@ export interface AppConfig {
   acceptReadings?: boolean;
   /** Shared bearer token the product backend must present. Unset means open (local dev only). */
   apiToken?: string;
+  /**
+   * Browser origins allowed to call this directly. Empty means none, which is the
+   * right default: normally a product backend calls us, not a page. The demo page
+   * is the exception and names itself here.
+   */
+  corsOrigins?: string[];
 }
 
 const VerifyBody = z.object({
@@ -104,6 +111,17 @@ export function createApp(config: AppConfig) {
   }
   const now = config.now ?? (() => new Date().toISOString());
   const app = new Hono();
+
+  if (config.corsOrigins?.length) {
+    app.use(
+      "*",
+      cors({
+        origin: config.corsOrigins,
+        allowMethods: ["GET", "POST", "OPTIONS"],
+        allowHeaders: ["Content-Type", "Authorization"],
+      }),
+    );
+  }
 
   // Every write needs the backend's token; reads (health, anchored envelopes, cases) stay public on purpose.
   app.use("*", async (c, next) => {
@@ -184,6 +202,9 @@ export function createApp(config: AppConfig) {
 
     let semantic: CriterionResult[];
     let score: number | undefined;
+    // Echoed back so a caller can show WHAT the model saw next to WHAT the rules
+    // decided. It is observation only: nothing downstream reads it.
+    let reading: unknown;
     if (body.data.reading && !config.acceptReadings) {
       return c.json({ error: "precomputed readings are not accepted; send the image" }, 403);
     }
@@ -197,6 +218,7 @@ export function createApp(config: AppConfig) {
       const outcome = await evaluateDocument(config.model, { condition, image: body.data.image, fx });
       semantic = outcome.criteria;
       score = outcome.score;
+      reading = outcome.reading;
     } else if (body.data.reading) {
       const parsed = readingSchemaFor(condition).safeParse(body.data.reading);
       if (!parsed.success) return c.json({ error: `reading does not match a ${condition.kind} condition`, issues: parsed.error.issues }, 400);
@@ -238,7 +260,7 @@ export function createApp(config: AppConfig) {
       state = applyAction(state, "ESCALATE");
     }
 
-    return c.json({ id, envelope, anchor, nextStep: step, status: state.status, release });
+    return c.json({ id, envelope, anchor, nextStep: step, status: state.status, release, reading });
   });
 
   /** The anchor target: exact canonical bytes, content-addressed. */

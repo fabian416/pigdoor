@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "kind": "purchase",
+  "payer": "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "receiver": "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  "receiverName": "Casa Hogar Electro",
+  "asset": { "code": "USDC", "issuer": "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" },
+  "maxAmount": "290",
+  "category": "electrodomésticos",
+  "items": ["lavarropas"],
+  "window": { "notBefore": "2026-10-25T00:00:00Z", "notAfter": "2026-11-08T23:59:59Z" },
+  "settlement": { "role": "escrow_funded" },
+  "evidence": { "type": "invoice_photo", "mustShow": ["merchant name", "date", "items", "total"] },
+  "sourceText": "Crédito de 290 USDC para que Ana compre un lavarropas en Casa Hogar Electro; se paga a la tienda contra factura, hasta el 8 de noviembre."
+}

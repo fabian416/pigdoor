@@ -12,6 +12,7 @@
  *   AUTO_RELEASE=1    execute releases on ALLOW (default: report only)
  *   ACCEPT_READINGS=1 demo only: accept precomputed readings instead of photos (refused with AUTO_RELEASE)
  *   API_TOKEN         bearer token the product backend must send on writes (unset = open, local dev only)
+ *   CORS_ORIGINS      comma-separated browser origins allowed to call directly (unset = none; the demo page names itself)
  *   ESCROW=memory|tw  escrow backend (default memory; tw needs TW_* vars)
  *   ANTHROPIC_API_KEY or `ant auth login` for the semantic verifier
  */
@@ -54,6 +55,7 @@ const app = createApp({
   autoRelease: process.env.AUTO_RELEASE === "1",
   acceptReadings: process.env.ACCEPT_READINGS === "1",
   apiToken: process.env.API_TOKEN,
+  corsOrigins: (process.env.CORS_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
 });
 if (!process.env.API_TOKEN) console.warn("API_TOKEN not set; write endpoints are open (local dev only)");
 
