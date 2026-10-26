@@ -93,9 +93,12 @@ disputes, the verifier service, tests, CI, docs. First commit 25 Oct 13:56 UTC.
 [lenclaw](https://github.com/fabian416/lenclaw) (agent credit on Base, March 2026). The "model proposes,
 rules decide" pattern comes from lenclaw; no code does.
 
-**Not finished at submission:** the Trustless Work V2 client (`services/verifier/src/escrow-client.ts`,
-`trustlessWorkClient`) is an interface with the endpoints annotated, pending the testnet integration;
-the OpenZeppelin smart-account release signer is roadmap.
+**Status of the escrow integration:** the Trustless Work V2 client (`services/verifier/src/trustless-work.ts`)
+is implemented against the V2 OpenAPI (read escrow and deposit trail, write the anchor, approve-and-release,
+dispute, signing the XDR the API returns) and tested against a fake of that API, signatures included. The
+on-chain evidence table above says whether it has run against testnet. The OpenZeppelin smart-account
+release signer is roadmap: the V2 API builds every transaction with a `G` wallet as source, so a contract
+account cannot release through it today.
 
 ## Layout
 
@@ -103,8 +106,8 @@ the OpenZeppelin smart-account release signer is roadmap.
 |---|---|
 | `packages/core` | Condition (purchase / task, `settlement.role`), RFC 8785 canonicalization and sha256, criteria and `decide()`, deterministic escrow checks, Lendoor underwriter, signed `VerificationEnvelope`, anchoring, milestone lifecycle, dispute case. Pure TypeScript. |
 | `packages/semantic` | Claude with structured outputs: invoice reader (purchases) and task-photo reader (chores); the trigger agent (payer's words → condition draft); `cli.ts` (one verdict) and `verify-cli.ts` (re-verify an anchored envelope). |
-| `services/verifier` | The verifier as its own process with its own key: `underwrite`, `verify`, content-addressed `GET /envelopes/:sha256` (the anchor target), challenges. Escrow behind `EscrowClient`: in-memory for the demo, Trustless Work V2 to wire. |
-| `examples/lendoor`, `examples/piggy` | The deck's two flows, synthetic. |
+| `services/verifier` | The verifier as its own process with its own key: `underwrite`, `verify`, content-addressed `GET /envelopes/:sha256` (the anchor target), challenges. Escrow behind `EscrowClient`: in-memory for the demo, Trustless Work V2 (`trustless-work.ts`) with `ESCROW=tw`. `tw-deploy.ts` deploys and funds an escrow from `examples/*/escrow.json` with the `conditionHash` in the milestone. |
+| `examples/lendoor`, `examples/piggy` | The deck's two flows, synthetic, plus `escrow.json`: the Trustless Work deploy spec (roles, milestone, USDC trustline). |
 | `docs/contracts.md` | The JSON objects the backend and the verifier exchange, endpoints, lifecycle (Spanish). |
 | `scripts/demo.sh` | Five verdicts, five re-verifications, offline. |
 | `Dockerfile`, `.github/workflows/ci.yml` | Container for the service; typecheck, tests and the demo on every push. |
@@ -115,7 +118,7 @@ Prerequisites: Node ≥ 24 and pnpm 10 (`corepack enable`).
 
 ```bash
 pnpm install
-pnpm typecheck && pnpm test          # 99 tests
+pnpm typecheck && pnpm test          # 111 tests
 ./scripts/demo.sh                     # offline: five signed envelopes in ./out, all re-verified
 
 # one live verdict on a photo (needs ANTHROPIC_API_KEY)
@@ -143,11 +146,25 @@ curl -s localhost:8787/health
 | `ANTHROPIC_API_KEY` | Credentials for the semantic verifier | unset → only readings in demo mode |
 | `AUTO_RELEASE` | `1` executes releases on ALLOW; otherwise the service reports the next step | report only |
 | `ACCEPT_READINGS` | `1` accepts precomputed readings instead of photos. Demo only; refused with `AUTO_RELEASE`; such envelopes carry `verifier: semantic:client_reading` and the response says `demo: true` | off |
-| `ESCROW` | `memory` or `tw` (Trustless Work V2; needs `TW_API_KEY`, optional `TW_BASE_URL`) | `memory` |
+| `ESCROW` | `memory` or `tw` (Trustless Work V2; needs `TW_API_KEY`, optional `TW_BASE_URL` and `STELLAR_NETWORK_PASSPHRASE`, testnet by default) | `memory` |
 | `DATA_DIR`, `PORT` | Envelope and case store; listen port | `./data`, `8787` |
 
 Why a separate process: if the service that funds the escrow also signed releases, the payer would be
 releasing to itself. Separate keys make the role split checkable on-chain.
+
+### Deploy and fund the escrows (Stellar testnet, Trustless Work V2)
+
+```bash
+# the deployer signs deploy and fund: XLM for fees, a USDC trustline with balance to fund
+TW_API_KEY=<id>.<secret> DEPLOYER_SECRET=S... VERIFIER=GBBRAFA4UK67BNR4FOJKVCQDF5U2MDNKN45TPMWSLIKNLS4WLHHVYSZ6 \
+RESOLVER=G... ADMIN=G... RECEIVER=G... \
+node services/verifier/src/tw-deploy.ts examples/lendoor/escrow.json --condition examples/lendoor/condition.json --fund
+```
+
+It prints the `contractId` (the `agreementId` of every envelope), the deploy and fund tx hashes and the
+explorer links, and refuses to continue if the milestone description on-chain does not carry the
+`conditionHash`. Then run the service with `ESCROW=tw`, `AUTO_RELEASE=1`, `API_TOKEN`, `PUBLIC_URL` and the
+same `VERIFIER_SECRET`, and `POST /agreements/<contractId>/milestones/1/verify` with the photo.
 
 ## For the frontend and the product backend
 

@@ -254,12 +254,19 @@ export function createApp(config: AppConfig) {
 
     const { id } = config.store.putEnvelope(envelope);
     const anchor = formatAnchorReference(anchorReference(envelope, `${config.publicUrl}/envelopes/${id}`));
-    await config.escrow.writeAnchor(agreementId, milestoneId, anchor);
+    // The signed envelope is already stored and served; an escrow write failing must not lose it.
+    let anchorError: string | undefined;
+    try {
+      await config.escrow.writeAnchor(agreementId, milestoneId, anchor, verdict.decision);
+    } catch (error) {
+      anchorError = (error as Error).message;
+    }
 
     let state: MilestoneState = { status, verdict };
     const step = nextStep(condition, state, now());
     let release: { txHash: string } | undefined;
     let releaseError: string | undefined;
+    let disputeError: string | undefined;
     if (step.action === "RELEASE" && config.autoRelease && !demo) {
       try {
         release = await config.escrow.releaseMilestone(agreementId, milestoneId);
@@ -268,11 +275,15 @@ export function createApp(config: AppConfig) {
         releaseError = (error as Error).message;
       }
     } else if (step.action === "ESCALATE" && status === "FUNDED") {
-      await config.escrow.disputeMilestone(agreementId, milestoneId, verdict.reasons.join(","));
-      state = applyAction(state, "ESCALATE");
+      try {
+        await config.escrow.disputeMilestone(agreementId, milestoneId, verdict.reasons.join(","));
+        state = applyAction(state, "ESCALATE");
+      } catch (error) {
+        disputeError = (error as Error).message;
+      }
     }
 
-    return c.json({ id, envelope, anchor, nextStep: step, status: state.status, release, releaseError, demo });
+    return c.json({ id, envelope, anchor, anchorError, nextStep: step, status: state.status, release, releaseError, disputeError, demo });
   });
 
   /** The anchor target: exact canonical bytes, content-addressed. */

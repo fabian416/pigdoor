@@ -44,6 +44,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.1.5
         version: 2.1.5(hono@4.13.14)
+      '@stellar/stellar-base':
+        specifier: ^15.0.0
+        version: 15.0.0
       '@witness/core':
         specifier: workspace:*
         version: link:../../packages/core

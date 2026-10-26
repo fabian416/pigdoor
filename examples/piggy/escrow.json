@@ -1,0 +1,24 @@
+{
+  "engagementId": "piggy-sasha-0001",
+  "title": "Witness · Piggy · Sasha's bed",
+  "description": "Allowance released when the chore is proven. The milestone description carries the sha256 (RFC 8785) of the frozen condition; the verifier key approves, releases and anchors the signed verdict in the milestone evidence.",
+  "platformFee": 0,
+  "roles": {
+    "approvers": ["$VERIFIER"],
+    "serviceProviders": ["$VERIFIER"],
+    "releaseSigners": ["$VERIFIER"],
+    "disputeResolvers": ["$RESOLVER"],
+    "platform": "$PLATFORM",
+    "admin": "$ADMIN",
+    "observers": []
+  },
+  "trustline": { "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA" },
+  "milestones": [
+    {
+      "description": "condition-v1 sha256=$CONDITION_HASH",
+      "amount": 2,
+      "receiver": "$RECEIVER",
+      "approvalsTarget": 1
+    }
+  ]
+}

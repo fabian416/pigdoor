@@ -137,7 +137,7 @@ el resolutor lo re-verifique.
 | `GET /health` | — | `{ ok, verifier (G...), model, autoRelease, acceptReadings, authenticated }`. Regla para el backend: si `acceptReadings` es true, el servicio está en modo demo y ningún veredicto debe disparar un release real |
 | `POST /conditions` | `{ text, payer, receiver, asset, settlementRole, defaultDeadline }` | `{ condition, conditionHash, draft }` (503 sin credenciales de modelo) |
 | `POST /agreements/:id/underwrite` | `{ condition, facts: { score, kycOk, kycValidUntil, approvedLimit, outstanding, evaluatedAt }, policy: { minScore, maxDisbursement, version } }` | `{ id, envelope, anchor, fundable }` — el veredicto del underwriter de Lendoor, `milestoneId: "underwriting"`, firmado con `UNDERWRITER_SECRET` si está, antes de fondear |
-| `POST /agreements/:id/milestones/:m/verify` | `{ condition, evidence[], image \| reading, fx? }` | `{ id, envelope, anchor, nextStep, status, release?, releaseError?, demo }`. El estado del hito se lee del escrow, nunca del body; 409 si ya está RELEASED o REFUNDED; 503 si el modelo no respondió (reintentar, no se firma nada) |
+| `POST /agreements/:id/milestones/:m/verify` | `{ condition, evidence[], image \| reading, fx? }` | `{ id, envelope, anchor, anchorError?, nextStep, status, release?, releaseError?, disputeError?, demo }`. El estado del hito se lee del escrow, nunca del body; 409 si ya está RELEASED o REFUNDED; 503 si el modelo no respondió (reintentar, no se firma nada). Si una escritura al escrow falla, el sobre firmado ya quedó guardado y servido: el error viene en `anchorError` / `releaseError` / `disputeError`, nunca se pierde el veredicto |
 | `GET /envelopes/:sha256` | — | los bytes canónicos del sobre (destino del anclaje) |
 | `GET /envelopes` | — | `{ ids }` |
 | `POST /envelopes/:sha256/challenge` | `{ openedBy, note, condition, evidenceLinks? }` | `{ caseId, case }` y marca el hito en disputa |
@@ -177,6 +177,16 @@ Cuentas: cada `G...` debe existir en testnet (friendbot). `STORE` y `SASHA` nece
 para cobrar; quien fondea necesita saldo USDC; el verificador solo XLM para fees (la API arma la
 transacción con el firmante como cuenta origen). El índice del hito en la API es 0; en este servicio
 es `"1"` (`index = Number(milestoneId) - 1`).
+
+Esta tabla está escrita como spec en `examples/lendoor/escrow.json` y `examples/piggy/escrow.json`
+(tokens `$VERIFIER`, `$RESOLVER`, `$ADMIN`, `$PLATFORM`, `$RECEIVER`, `$CONDITION_HASH`), y
+`services/verifier/src/tw-deploy.ts` la despliega y fondea con la API V2 (comando en el README). El
+cliente real está en `services/verifier/src/trustless-work.ts`: lee el escrow y la cola de depósitos
+(`GET /escrow/multi-release/v2/:id`, `GET /escrows/:id/deposits`), escribe el anclaje con
+`change-milestone-status` (status `completed` si ALLOW, `verdict:DENY` / `verdict:REVIEW` si no),
+libera con `approve-and-release-milestones` y escala con `dispute-milestones`; cada escritura firma el
+XDR que devuelve la API con la clave del verificador y lo manda a `POST /stellar/send-transaction`.
+`fundedAt` es el depósito en el activo del trustline con el que la suma alcanza el total de los hitos.
 
 Las claves del verificador y del underwriter son fijas por despliegue (`VERIFIER_SECRET`,
 `UNDERWRITER_SECRET`); sus direcciones públicas están en el README para que el backend las copie en

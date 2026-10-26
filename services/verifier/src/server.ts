@@ -42,6 +42,7 @@ const escrow =
         baseUrl: process.env.TW_BASE_URL ?? "https://beta.api.trustlesswork.com",
         apiKey: required("TW_API_KEY"),
         releaseSignerSecret: required("VERIFIER_SECRET"),
+        networkPassphrase: process.env.STELLAR_NETWORK_PASSPHRASE,
       })
     : seededMemoryEscrow();
 
