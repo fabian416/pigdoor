@@ -20,13 +20,13 @@ run_cli --condition examples/lendoor/condition.json --underwriting examples/lend
 
 echo; echo "== Lendoor 2/3 · Ana's invoice from Casa Hogar Electro"
 if [[ -n "${LIVE_PHOTO_LENDOOR:-}" ]]; then
-  run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --photo "$LIVE_PHOTO_LENDOOR" ${FX:+--fx "$FX"} > out/lendoor-allow.json
+  run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --photo "$LIVE_PHOTO_LENDOOR" --fx "${FX:-ARS=1450}" > out/lendoor-allow.json
 else
-  run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --reading examples/lendoor/reading-good.json > out/lendoor-allow.json
+  run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --reading examples/lendoor/reading-good.json --fx "${FX:-ARS=1450}" > out/lendoor-allow.json
 fi
 
 echo; echo "== Lendoor 3/3 · a supermarket ticket instead"
-run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --reading examples/lendoor/reading-wrong-shop.json > out/lendoor-deny.json || true
+run_cli --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json --evidence examples/lendoor/evidence.json --reading examples/lendoor/reading-wrong-shop.json --fx "${FX:-ARS=1450}" > out/lendoor-deny.json || true
 
 echo; echo "== Piggy 1/2 · Sasha made the bed"
 if [[ -n "${LIVE_PHOTO_PIGGY:-}" ]]; then

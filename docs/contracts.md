@@ -1,5 +1,9 @@
 # Contratos de datos entre el backend y el verificador
 
+*(Spanish.) Sections: 1 Condition · 2 EscrowFacts · 3 VerificationEnvelope · 4 Anchoring · 5 Milestone
+lifecycle · 6 Dispute case · 7 Service endpoints · 8 Escrow roles per flow (Trustless Work V2 DTO rules; the
+26 Oct live run used V1, see the end of §8) · reason codes · decision rule. The JSON shapes are in English.*
+
 Tres objetos JSON. Los dos primeros los produce el backend (o la app); el tercero lo produce el
 verificador y lo puede comprobar cualquiera. Esquemas en `packages/core/src/condition.ts`,
 `deterministic.ts` y `envelope.ts`; ejemplos en `examples/`.
@@ -134,13 +138,14 @@ el resolutor lo re-verifique.
 
 | Método y ruta | Entrada | Salida |
 |---|---|---|
+| `GET /` | — | `{ service, verifier, health, envelopes, source }`: índice para quien abre la URL base |
 | `GET /health` | — | `{ ok, verifier (G...), model, autoRelease, acceptReadings, authenticated }`. Regla para el backend: si `acceptReadings` es true, el servicio está en modo demo y ningún veredicto debe disparar un release real |
 | `POST /conditions` | `{ text, payer, receiver, asset, settlementRole, defaultDeadline }` | `{ condition, conditionHash, draft }` (503 sin credenciales de modelo) |
 | `POST /agreements/:id/underwrite` | `{ condition, facts: { score, kycOk, kycValidUntil, approvedLimit, outstanding, evaluatedAt }, policy: { minScore, maxDisbursement, version } }` | `{ id, envelope, anchor, fundable }` — el veredicto del underwriter de Lendoor, `milestoneId: "underwriting"`, firmado con `UNDERWRITER_SECRET` si está, antes de fondear |
-| `POST /agreements/:id/milestones/:m/verify` | `{ condition, evidence[], image \| reading, fx? }` | `{ id, envelope, anchor, anchorError?, nextStep, status, release?, releaseError?, disputeError?, demo }`. El estado del hito se lee del escrow, nunca del body; 409 si ya está RELEASED o REFUNDED; 503 si el modelo no respondió (reintentar, no se firma nada). Si una escritura al escrow falla, el sobre firmado ya quedó guardado y servido: el error viene en `anchorError` / `releaseError` / `disputeError`, nunca se pierde el veredicto |
+| `POST /agreements/:id/milestones/:m/verify` | `{ condition, evidence[], image \| reading, fx? }` | `{ id, envelope, anchor, anchorError?, nextStep, status, release?, releaseError?, disputeError?, demo, reading? }` (`reading` = lo que leyó el modelo, solo para mostrarlo; no va firmado). El estado del hito se lee del escrow, nunca del body; 409 si ya está RELEASED o REFUNDED; 503 si el modelo no respondió (reintentar, no se firma nada). Si una escritura al escrow falla, el sobre firmado ya quedó guardado y servido: el error viene en `anchorError` / `releaseError` / `disputeError`, nunca se pierde el veredicto |
 | `GET /envelopes/:sha256` | — | los bytes canónicos del sobre (destino del anclaje) |
 | `GET /envelopes` | — | `{ ids }` |
-| `POST /envelopes/:sha256/challenge` | `{ openedBy, note, condition, evidenceLinks? }` | `{ caseId, case }` y marca el hito en disputa |
+| `POST /envelopes/:sha256/challenge` | `{ openedBy, note, condition, evidenceLinks? }` | `{ caseId, case }` y marca el hito en disputa en el escrow (en el servicio público, modo demo, el escrow sembrado no se marca: `seededMemoryEscrow` en `server.ts`) |
 | `GET /cases/:id` | — | el caso |
 
 El backend de producto llama a `verify` cuando el proveedor sube la evidencia; el servicio lee los

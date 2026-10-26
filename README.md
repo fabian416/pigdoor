@@ -4,7 +4,7 @@
 
 > **Proof before payment: money that moves only when the condition is proven.**
 > Piggy Wallet × Lendoor at [HackMeridian 2026](https://www.hackmeridian.com/build), Lisbon, 25–26 October · Scale category.
-> Team: Lucho (CEO, Lendoor), Fabián Díaz (CTO, Lendoor), Sofía Vásquez (CEO, Piggy Wallet).
+> Team: Lucho ([@LuchoLeonel](https://github.com/LuchoLeonel), CEO Lendoor), Fabián Díaz ([@fabian416](https://github.com/fabian416), CTO Lendoor), Sofía Vásquez (CEO Piggy Wallet).
 
 ## In 60 seconds, for reviewers
 
@@ -221,11 +221,11 @@ curl -s localhost:8787/health
 
 | Env | Meaning | Default |
 |---|---|---|
-| `VERIFIER_SECRET` | Stellar secret (S...) of the release signer; its public key is what the escrow lists in `approvers` and `releaseSigners`. Fixed in any real deployment | ephemeral, printed at start |
+| `VERIFIER_SECRET` | Stellar secret (S...) of the release signer; its public key is what the escrow lists in `approvers` and `releaseSigners`. Fixed in any real deployment | ephemeral, printed at start; required with `ESCROW=tw` |
 | `UNDERWRITER_SECRET` | Lendoor's underwriter key, so its verdicts carry their own address | the verifier key |
-| `API_TOKEN` | Bearer token the product backend must send on every write; reads stay public. Required with `AUTO_RELEASE` | unset = open, local only |
+| `API_TOKEN` | Bearer token the product backend must send on every write; reads stay public. Required with `AUTO_RELEASE` | unset = open; the public demo runs open on purpose, since without a token it cannot release |
 | `PUBLIC_URL` | Base URL written into anchors. Required with `ESCROW=tw` | `http://localhost:8787` |
-| `ANTHROPIC_API_KEY` | Credentials for the semantic verifier | unset → only readings in demo mode |
+| `ANTHROPIC_API_KEY` (or `ANTHROPIC_AUTH_TOKEN`) | Credentials for the semantic verifier | unset → only readings in demo mode |
 | `AUTO_RELEASE` | `1` executes releases on ALLOW; otherwise the service reports the next step | report only |
 | `ACCEPT_READINGS` | `1` accepts precomputed readings instead of photos. Demo only; refused with `AUTO_RELEASE`; such envelopes carry `verifier: semantic:client_reading` and the response says `demo: true` | off |
 | `CORS_ORIGINS` | Comma-separated browser origins allowed to call the service directly. Normally a product backend calls it, not a page; the demo page is the exception and names itself here | none |

@@ -10,7 +10,7 @@ the verdict with the key that releases the escrow, and anchors it on-chain.
 
 **Category:** Scale. **Teams:** Piggy Wallet (SCF #41) × Lendoor (SCF #45).
 
-**Team:** Lucho (CEO Lendoor), Fabián Díaz (CTO Lendoor), Sofía Vásquez (CEO Piggy Wallet).
+**Team:** Lucho (@LuchoLeonel, CEO Lendoor), Fabián Díaz (@fabian416, CTO Lendoor), Sofía Vásquez (CEO Piggy Wallet).
 
 **Repository:** https://github.com/fabian416/witness (Apache-2.0; DCO sign-off on 21 of 22 commits, see
 README › License).
