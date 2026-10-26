@@ -12,7 +12,7 @@ the verdict with the key that releases the escrow, and anchors it on-chain.
 
 **Team:** Lucho (@LuchoLeonel, CEO Lendoor), Fabián Díaz (@fabian416, CTO Lendoor), Sofía Vásquez (CEO Piggy Wallet).
 
-**Repository:** https://github.com/fabian416/witness (Apache-2.0; DCO sign-off on 21 of 22 commits, see
+**Repository:** https://github.com/fabian416/witness (Apache-2.0; DCO sign-off on 21 of 23 commits, see
 README › License).
 
 **Demo:** https://hackmeridian.lendoor.xyz (Lendoor's testnet app, prior work, with the Witness verification
@@ -34,8 +34,9 @@ against the invoice; partners fund the book and need to audit each decision with
   role are bound by the app, never by the model.
 - **Deterministic verifier**: committed condition, funded, destination, amount cap, window, read from the
   escrow, never from the caller.
-- **Semantic verifier**: Claude extracts fields from the photo under a strict JSON schema (merchant, items,
-  date, total; or task visible / done / staging signs). Code compares. The model never sees the cap or the
+- **Semantic verifier**: a vision model (Claude Opus 5.5 by default; Gemini 2.5 Flash selectable with
+  `MODEL_PROVIDER`, same interface, same schema re-validated by us) extracts fields from the photo under a
+  strict JSON schema (merchant, items, date, total; or task visible / done / staging signs). Code compares. The model never sees the cap or the
   policy, never computes the score, never decides.
 - **Lendoor underwriter**: score, KYC, credit line, policy, signed before funding with its own key.
 - **Signed VerificationEnvelope** (Trustless Work's research vocabulary, plus `conditionHash`), ed25519 by

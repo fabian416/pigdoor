@@ -9,8 +9,9 @@
 ## In 60 seconds, for reviewers
 
 - **What it is.** A verification layer for Trustless Work escrows on Stellar: a condition is frozen and
-  committed by hash before funding; a photo is read by Claude under a strict schema; deterministic code
-  decides; the verdict is signed by the same key that releases the escrow and anchored in the milestone.
+  committed by hash before funding; a photo is read by a vision model (Claude Opus by default, Gemini
+  selectable) under a strict schema; deterministic code decides; the verdict is signed by the same key that
+  releases the escrow and anchored in the milestone.
 - **What runs today.** Public verifier `https://hackmeridian.api.lendoor.xyz` (`/health`). Two front ends:
   the standalone page in `demo/` (this repo), and `https://hackmeridian.lendoor.xyz`, Lendoor's existing testnet
   app (lendoor-stellar, prior work) with a Witness verification screen added during the hack, calling this
@@ -29,8 +30,8 @@
   It fetches the anchored envelope, recomputes its hash, checks the ed25519 signature against the
   verifier address and prints the criteria tally (10/10). `pnpm test` runs 113 tests; `./scripts/demo.sh`
   runs both flows offline.
-- **Built here.** Every commit in this repository, 25–26 October (Apache-2.0; 21 of 22 commits carry a DCO
-  sign-off, see License). Prior work by the same team is listed below; none of its code is in this repository.
+- **Built here.** Every commit in this repository, 25–26 October (Apache-2.0; the maintainer's 21 commits
+  carry a DCO sign-off, Lucho's two do not yet, see License). Prior work by the same team is listed below; none of its code is in this repository.
 
 ## The problem
 
@@ -60,7 +61,7 @@ Two products with the same problem for different reasons:
   evidence (photo) ──► sha256 ──► verifier service ◄── escrow facts (receiver, amount, funding, status, conditionHash)
                                    │
                                    ├─ deterministic checks: committed condition, funded, destination, cap, window
-                                   ├─ semantic verifier: Claude extracts fields under a strict schema; code compares
+                                   ├─ semantic verifier: the model (Claude or Gemini) extracts fields under a strict schema; code compares
                                    ├─ (Lendoor, before funding) underwriter: score, KYC, line, policy
                                    ▼
                        decide() ──► Verdict ──► VerificationEnvelope, signed ed25519 by the verifier key
@@ -93,7 +94,9 @@ underwriter signs a separate verdict before funding with its own key.
 - Video: *pending*.
 - Public verifier: `https://hackmeridian.api.lendoor.xyz` (`GET /health` reports the key it signs with). Demo
   page: `https://hackmeridian.lendoor.xyz`. The live service runs in demo mode: in-memory escrow seeded with
-  the two milestones, the model on, readings accepted, no auto-release.
+  the two milestones, the model on, readings accepted, no auto-release. Since 26 Oct 10:54 UTC the model
+  behind it is Gemini 2.5 Flash (`MODEL_PROVIDER=gemini`), after the Anthropic credit ran out; the on-chain
+  run and the two anchored envelopes below were produced with Claude Opus 5.5. Same schema, same rules.
 - Offline, right now: `./scripts/demo.sh` runs the five verdicts of the two flows and re-verifies them.
 
 ### Live verdicts on real photos (26 Oct, Claude reading the invoices, rules deciding)
@@ -186,7 +189,7 @@ source, so a contract account cannot release through them today.
 | Path | What |
 |---|---|
 | `packages/core` | Condition (purchase / task, `settlement.role`), RFC 8785 canonicalization and sha256, criteria and `decide()`, deterministic escrow checks, Lendoor underwriter, signed `VerificationEnvelope`, anchoring, milestone lifecycle, dispute case. Pure TypeScript. |
-| `packages/semantic` | Claude with structured outputs: invoice reader (purchases) and task-photo reader (chores); the trigger agent (payer's words → condition draft); `cli.ts` (one verdict) and `verify-cli.ts` (re-verify an anchored envelope). |
+| `packages/semantic` | The vision model behind a `StructuredModel` interface, Claude (default) or Gemini, with outputs validated against the same Zod schema: invoice reader (purchases) and task-photo reader (chores); the trigger agent (payer's words → condition draft); `cli.ts` (one verdict) and `verify-cli.ts` (re-verify an anchored envelope). |
 | `services/verifier` | The verifier as its own process with its own key: `underwrite`, `verify`, content-addressed `GET /envelopes/:sha256` (the anchor target), challenges. Escrow behind `EscrowClient`: in-memory for the demo, Trustless Work V2 (`trustless-work.ts`) with `ESCROW=tw`. `tw-deploy.ts` deploys and funds an escrow from `examples/*/escrow.json` with the `conditionHash` in the milestone. |
 | `examples/lendoor`, `examples/piggy` | The deck's two flows, synthetic, plus `escrow.json` (the V2 deploy spec) and `condition.testnet.json` (the conditions committed on-chain, real testnet accounts). |
 | `demo` | One page that takes the photo and shows the verdict next to what the model read (Vite + React), by Lucho. |
@@ -225,7 +228,8 @@ curl -s localhost:8787/health
 | `UNDERWRITER_SECRET` | Lendoor's underwriter key, so its verdicts carry their own address | the verifier key |
 | `API_TOKEN` | Bearer token the product backend must send on every write; reads stay public. Required with `AUTO_RELEASE` | unset = open; the public demo runs open on purpose, since without a token it cannot release |
 | `PUBLIC_URL` | Base URL written into anchors. Required with `ESCROW=tw` | `http://localhost:8787` |
-| `ANTHROPIC_API_KEY` (or `ANTHROPIC_AUTH_TOKEN`) | Credentials for the semantic verifier | unset → only readings in demo mode |
+| `ANTHROPIC_API_KEY` (or `ANTHROPIC_AUTH_TOKEN`) | Credentials for the semantic verifier with the default provider | unset → only readings in demo mode |
+| `MODEL_PROVIDER`, `GEMINI_API_KEY`, `MODEL_NAME` | `gemini` switches the vision model to Gemini (`packages/semantic/src/gemini.ts`, same `StructuredModel` interface, same schema re-validated on our side); `MODEL_NAME` overrides the model on either provider | `anthropic` |
 | `AUTO_RELEASE` | `1` executes releases on ALLOW; otherwise the service reports the next step | report only |
 | `ACCEPT_READINGS` | `1` accepts precomputed readings instead of photos. Demo only; refused with `AUTO_RELEASE`; such envelopes carry `verifier: semantic:client_reading` and the response says `demo: true` | off |
 | `CORS_ORIGINS` | Comma-separated browser origins allowed to call the service directly. Normally a product backend calls it, not a page; the demo page is the exception and names itself here | none |
@@ -284,5 +288,5 @@ release from a service whose `/health` says `acceptReadings: true`.
 
 ## License
 
-Apache-2.0. 21 of 22 commits carry a DCO `Signed-off-by`; the demo-page commit `b71599d` was pushed
-without the trailer and its author signs it off retroactively.
+Apache-2.0. The maintainer's 21 commits carry a DCO `Signed-off-by`; Lucho's two (`b71599d`, the demo page,
+and `cff8df1`, the Gemini provider) were pushed without the trailer and he signs them off retroactively.
