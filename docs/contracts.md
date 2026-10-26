@@ -167,7 +167,7 @@ resolutor y no fondea: puede aprobar y liberar hitos que ya existen, nada más.
 | `observers` | `[FUNDER]` (opcional) | `[]` | solo lectura; el socio que fondea el libro de Lendoor |
 | `signer` (deploy) y `signer` (fund) | `LENDOOR_BACKEND` | `PIGGY_BACKEND` (o `PARENT`) | quien despliega y fondea; el pagador no es un rol |
 | `milestones[0].receiver` | `STORE` | `SASHA` | el `receiver` de la condición; el verificador compara los dos |
-| `milestones[0].amount` | `290` | `2` | igual a `maxAmount` de la condición |
+| `milestones[0].amount` | `290` (spec) · `10` en la corrida del 26/10 por el límite del faucet | `2` | `≤ maxAmount` de la condición (el chequeo es tope, no igualdad) |
 | `milestones[0].description` | `condition-v1 sha256=<conditionHash>` | idem | el hash comprometido; sin él todo veredicto es REVIEW |
 | `milestones[0].approvalsTarget` | `1` (default) | `1` | con `2` y `approvers = [VERIFIER, PLATFORM]` el verificador solo no puede liberar: endurecimiento para después del hackathon |
 | `trustline` | `{ "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA" }` | idem | USDC de Circle en testnet (SAC) |

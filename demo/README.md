@@ -23,8 +23,8 @@ deterministic checks still pass while the semantic ones do not.
 ## Run
 
 ```bash
-# the verifier, in another terminal, from the repo root
-ANTHROPIC_API_KEY=... pnpm --filter @witness/verifier-service start
+# the verifier, in another terminal, from the repo root (CORS_ORIGINS lets this page call it)
+CORS_ORIGINS=http://localhost:3000 ANTHROPIC_API_KEY=... pnpm --filter @witness/verifier-service start
 
 # this page
 pnpm --filter @witness/demo dev     # http://localhost:3000

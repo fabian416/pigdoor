@@ -11,8 +11,10 @@
 - **What it is.** A verification layer for Trustless Work escrows on Stellar: a condition is frozen and
   committed by hash before funding; a photo is read by Claude under a strict schema; deterministic code
   decides; the verdict is signed by the same key that releases the escrow and anchored in the milestone.
-- **What runs today.** Public verifier `https://hackmeridian.api.lendoor.xyz` (`/health`), demo
-  `https://hackmeridian.lendoor.xyz`, and the page in `demo/`.
+- **What runs today.** Public verifier `https://hackmeridian.api.lendoor.xyz` (`/health`). Two front ends:
+  the standalone page in `demo/` (this repo), and `https://hackmeridian.lendoor.xyz`, Lendoor's existing testnet
+  app (lendoor-stellar, prior work) with a Witness verification screen added during the hack, calling this
+  verifier against its seeded demo milestone.
 - **What is on-chain** (Stellar testnet, USDC): escrow
   [`CDGQRKMQ…U6WJ7W`](https://stellar.expert/explorer/testnet/contract/CDGQRKMQHLROLX6L6FW6VQQI7BQXRCKQ7IDJUN5QZLUTZQR2E3U6WJ7W)
   deployed with the condition hash, funded, verdict ALLOW on a real invoice anchored in the milestone,
@@ -25,15 +27,16 @@
   pnpm install && node packages/semantic/src/verify-cli.ts "verdict-v1 sha256=839df0a154d7056b76c61a4eade55915237d85d0e4c1e4558672b6407cc3b7f5 uri=https://hackmeridian.api.lendoor.xyz/envelopes/839df0a154d7056b76c61a4eade55915237d85d0e4c1e4558672b6407cc3b7f5"
   ```
   It fetches the anchored envelope, recomputes its hash, checks the ed25519 signature against the
-  verifier address and prints the ten criteria. `pnpm test` runs 113 tests; `./scripts/demo.sh` runs both
-  flows offline.
-- **Built here.** Every commit in this repository, 25–26 October (Apache-2.0, DCO). Prior work by the
-  same team is listed below and none of its code is used.
+  verifier address and prints the criteria tally (10/10). `pnpm test` runs 113 tests; `./scripts/demo.sh`
+  runs both flows offline.
+- **Built here.** Every commit in this repository, 25–26 October (Apache-2.0; 21 of 22 commits carry a DCO
+  sign-off, see License). Prior work by the same team is listed below; none of its code is in this repository.
 
 ## The problem
 
-Escrow already exists on Stellar. Proving the condition does not. Trustless Work's own research
-note on evidence-gated release lists what their pilot does not establish:
+Escrow already exists on Stellar. Proving the condition does not. Trustless Work's own
+[research note on evidence-gated release](https://github.com/Trustless-Work/agentic-escrow-research)
+lists what their pilot does not establish:
 *"that the evidence is true or complete"* — it checks integrity, addressing and a signature, not
 content. Witness is that missing half: a verification layer that reads the evidence, decides by
 rules, signs the verdict with the same key that releases the escrow, and anchors it so that whoever
@@ -95,9 +98,14 @@ underwriter signs a separate verdict before funding with its own key.
 
 ### Live verdicts on real photos (26 Oct, Claude reading the invoices, rules deciding)
 
-Two invoices from the demo page, sent as photos to the public verifier. The anchor lines below resolve to
-the signed envelopes; anyone can re-check them with `verify-cli` (hash of the canonical bytes, ed25519
-signature, agreement, condition):
+Two test invoices, sent as photos to the public verifier. The exact bytes the envelopes seal are committed
+here as `examples/lendoor/factura-ok.jpg` (sha256 `69d9b7f0…`) and `examples/lendoor/factura-mal.jpg`
+(`5b15f329…`); the demo site replaced its copies with new renders later that morning, so the `uri` inside
+the envelopes no longer serves those bytes, the files in this repo do. These two envelopes come from the
+seeded in-memory demo escrow (agreement `demo`): its funding hash is a fixture, not a funding of any escrow;
+the escrow-backed verdicts are in the table further down. The anchor lines below resolve to the signed
+envelopes; anyone can re-check them with `verify-cli` (hash of the canonical bytes, ed25519 signature,
+agreement, condition):
 
 ```
 verdict-v1 sha256=27eb6eba443793ffd2506a4144101ef4514d3d6a04d39f0931f72d5cd51e35fc uri=https://hackmeridian.api.lendoor.xyz/envelopes/27eb6eba443793ffd2506a4144101ef4514d3d6a04d39f0931f72d5cd51e35fc
@@ -133,22 +141,25 @@ dapp.trustlesswork.com is a V1 credential, and V2 keys are issued by their backo
 
 **The verifier refusing, on-chain.** The first Lendoor attempt committed the example condition, whose
 `receiver` is a placeholder address, so the escrow paid someone the condition did not name. The invoice
-read fine (10/10 semantic criteria) and the verdict was still **DENY · DESTINATION_MISMATCH**, anchored
+read fine (every semantic criterion passed, 9/10 overall) and the verdict was still **DENY · DESTINATION_MISMATCH**, anchored
 in escrow [`CCX5JWHY…AV76UFJ`](https://stellar.expert/explorer/testnet/contract/CCX5JWHYM6HELA6WIBNKEBDK4TDHCLW7DZ2KOR7XYUEAJZT2PAV76UFJ)
 ([anchor tx](https://stellar.expert/explorer/testnet/tx/20f3a5008f5c755b39265089946aed739a7e29f251ef9fb3c7e4de5eee6721d1),
 envelope [`0c9aa005…`](https://hackmeridian.api.lendoor.xyz/envelopes/0c9aa005d3f1ac1ff365c623dd6be0acfd4ff4e19406b1979a705702e2681b43)).
 Nothing moved. The funds came back the way the lifecycle says they do: the verifier
 [disputed](https://stellar.expert/explorer/testnet/tx/1905b06567ec370e3c6b06273fd85ddd73939788b6be8d4c52c7b64ed74c15dd)
 the milestone and the dispute resolver
-[returned the 10 USDC to the payer](https://stellar.expert/explorer/testnet/tx/2eff0eeb18934427839ee135d15c36e08421ec48294461d30e24bb98f1dbef66).
+[returned 9.97 USDC to the payer](https://stellar.expert/explorer/testnet/tx/2eff0eeb18934427839ee135d15c36e08421ec48294461d30e24bb98f1dbef66)
+(0.03 USDC is Trustless Work's fee; the funding of that escrow is
+[`bd8e4ad5…`](https://stellar.expert/explorer/testnet/tx/bd8e4ad5a9b49edd4f2ec323fb434c732dd179009758c8d7768ff585341bdafd)).
 
 Verifier (release signer, in `approvers` + `releaseSigners` + `serviceProviders` of both escrows): the key
 the public service signs with, reported by its `/health` and carried by every envelope it signs; on 26 Oct
 that is [`GC32JANEEDIR5CZ47Z3GZKAHD36KHZXODHKKKMQLSAJZOPD7ICYVJMHR`](https://stellar.expert/explorer/testnet/account/GC32JANEEDIR5CZ47Z3GZKAHD36KHZXODHKKKMQLSAJZOPD7ICYVJMHR).
 The role layout per escrow is in [`docs/contracts.md` §8](docs/contracts.md). Tx links go to
 `https://stellar.expert/explorer/testnet/tx/<hash>`.
-**Every hash in `examples/` and in the tests is synthetic** (`111…`, `222…`, `ESCROW-DEMO-0001`) until
-the team's own transactions replace them.
+**The hashes in `examples/*/facts.json`, `examples/*/evidence.json` and in the tests are synthetic fixtures**
+for the offline demo (`111…`, `222…`, `ESCROW-DEMO-0001`); the real ones are in the table above and the
+conditions committed on-chain are `examples/*/condition.testnet.json`.
 
 ## Built at HackMeridian vs prior work
 
@@ -156,10 +167,11 @@ the team's own transactions replace them.
 schema and hashing, both verifiers, the underwriter, the signed envelope, anchoring, lifecycle,
 disputes, the verifier service, tests, CI, docs. First commit 25 Oct 13:56 UTC.
 
-**Prior work by the same team, not used here:** credit delegation in
-[lendoor-stellar](https://github.com/LuchoLeonel/lendoor-stellar) (Soroban loan manager, SCF #45) and
-[lenclaw](https://github.com/fabian416/lenclaw) (agent credit on Base, March 2026). The "model proposes,
-rules decide" pattern comes from lenclaw; no code does.
+**Prior work by the same team:** [lendoor-stellar](https://github.com/LuchoLeonel/lendoor-stellar)
+(Soroban loan manager, SCF #45): none of its code is in this repository; during the hack a Witness
+verification screen was added to that app, and that is what `https://hackmeridian.lendoor.xyz` serves.
+[lenclaw](https://github.com/fabian416/lenclaw) (agent credit on Base, March 2026): the "model reads, rules
+decide" pattern comes from it; no code does.
 
 **Status of the escrow integration:** the testnet run above went through the Trustless Work V1 API with
 `services/verifier/src/tw1-live.ts` (deploy, fund, verify, anchor, approve, release; `tw1-op.ts` for dispute
@@ -193,7 +205,7 @@ pnpm typecheck && pnpm test          # 113 tests
 
 # one live verdict on a photo (needs ANTHROPIC_API_KEY)
 node packages/semantic/src/cli.ts --condition examples/lendoor/condition.json --facts examples/lendoor/facts.json \
-  --evidence examples/lendoor/evidence.json --photo factura.jpg --fx ARS=1450
+  --evidence examples/lendoor/evidence.json --photo examples/lendoor/factura-ok.jpg --fx ARS=1450
 node packages/semantic/src/cli.ts --condition examples/piggy/condition.json --facts examples/piggy/facts.json \
   --evidence examples/piggy/evidence.json --photo cama.jpg
 # Lendoor's underwriting verdict, before funding
@@ -223,11 +235,15 @@ curl -s localhost:8787/health
 Why a separate process: if the service that funds the escrow also signed releases, the payer would be
 releasing to itself. Separate keys make the role split checkable on-chain.
 
-### Deploy and fund the escrows (Stellar testnet, Trustless Work V2)
+### Deploy and fund the escrows (Trustless Work V2 path, not yet exercised on testnet)
+
+The 26 Oct run used `services/verifier/src/tw1-live.ts` against the V1 API (the self-service testnet key is
+V1); this is the equivalent for V2, once Trustless Work issues a V2 credential.
 
 ```bash
 # the deployer signs deploy and fund: XLM for fees, a USDC trustline with balance to fund
-TW_API_KEY=<id>.<secret> DEPLOYER_SECRET=S... VERIFIER=GBBRAFA4UK67BNR4FOJKVCQDF5U2MDNKN45TPMWSLIKNLS4WLHHVYSZ6 \
+# VERIFIER = the key the service signs with (GET /health .verifier), GC32JANE…JMHR on 26 Oct
+TW_API_KEY=<id>.<secret> DEPLOYER_SECRET=S... VERIFIER=GC32JANEEDIR5CZ47Z3GZKAHD36KHZXODHKKKMQLSAJZOPD7ICYVJMHR \
 RESOLVER=G... ADMIN=G... RECEIVER=G... \
 node services/verifier/src/tw-deploy.ts examples/lendoor/escrow.json --condition examples/lendoor/condition.json --fund
 ```
@@ -262,10 +278,11 @@ release from a service whose `/health` says `acceptReadings: true`.
 | User value | Piggy: allowance paid on proof of the chore. Lendoor: partner capital paid to the store on proof of the invoice, with a verdict the funder can audit without trusting Lendoor. Both flows in `examples/`. |
 | Technical | `packages/core` (hashing, criteria, lifecycle, signed envelope), `packages/semantic` (model reads, code decides, injection tests), `services/verifier` (service, Trustless Work clients), 113 tests, CI, live run scripts. |
 | Innovation | The verdict is signed by the escrow's own release key and anchored in the milestone, so the release and the reason for it are the same verifiable object; the model never sees the cap or the policy. |
-| Progress during the hack | Git history, first commit 25 Oct 13:56 UTC; on-chain evidence produced 26 Oct 09:40–10:00 UTC. |
+| Progress during the hack | [Commit history](https://github.com/fabian416/witness/commits/main), first commit 25 Oct 13:56 UTC; [CI green on every push](https://github.com/fabian416/witness/actions); on-chain evidence produced 26 Oct 09:40–10:00 UTC. |
 | Market | Two live products with users and SCF grants on both sides of the same gap. |
 | UX | `demo/` and the demo site: photo in, what the model read next to what the code decided, verdict and envelope out. |
 
 ## License
 
-Apache-2.0. Every commit is signed off (DCO).
+Apache-2.0. 21 of 22 commits carry a DCO `Signed-off-by`; the demo-page commit `b71599d` was pushed
+without the trailer and its author signs it off retroactively.

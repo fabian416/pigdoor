@@ -18,7 +18,7 @@ import type { EscrowClient, ReleaseDecision } from "./escrow-client.ts";
 export interface TrustlessWorkConfig {
   /** V2 base URL. V1 (`dev.api` / `api`) is a different, incompatible API. */
   baseUrl: string;
-  /** `<id>.<secret>`, sent as `x-api-key`. Self-service at dapp.trustlesswork.com. */
+  /** `<id>.<secret>`, sent as `x-api-key`. V2 keys are issued by Trustless Work's backoffice; the self-service key from dapp.trustlesswork.com is V1 (see tw1-live.ts). */
   apiKey: string;
   /** Secret of the verifier key: listed in approvers, releaseSigners and serviceProviders of the escrow. */
   releaseSignerSecret: string;

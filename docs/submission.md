@@ -12,11 +12,12 @@ the verdict with the key that releases the escrow, and anchors it on-chain.
 
 **Team:** Lucho (CEO Lendoor), Fabián Díaz (CTO Lendoor), Sofía Vásquez (CEO Piggy Wallet).
 
-**Repository:** https://github.com/fabian416/witness (Apache-2.0, every commit DCO signed-off). *Make it
-public before submitting.*
+**Repository:** https://github.com/fabian416/witness (Apache-2.0; DCO sign-off on 21 of 22 commits, see
+README › License).
 
-**Demo page:** https://hackmeridian.lendoor.xyz · **Verifier API:** https://hackmeridian.api.lendoor.xyz
-(`/health`). **Video:** *pending*.
+**Demo:** https://hackmeridian.lendoor.xyz (Lendoor's testnet app, prior work, with the Witness verification
+screen added during the hack) and the standalone page in `demo/` · **Verifier API:**
+https://hackmeridian.api.lendoor.xyz (`/health`). **Video:** *pending*.
 
 ## The problem
 
@@ -42,9 +43,10 @@ against the invoice; partners fund the book and need to audit each decision with
   `verdict-v1 sha256=<hex> uri=<GET /envelopes/:sha256>`. Anyone re-verifies with `verify-cli`.
 - **Lifecycle and disputes**: ALLOW → approve-and-release; DENY → nothing moves, reasons shown; REVIEW →
   dispute for the human resolver; deadline → the resolver refunds (no time-based refund in the contract).
-- **Trustless Work V2 client**: escrow and deposit trail → facts; anchor, approve-and-release, dispute;
-  signs the XDR the API returns. Deploy script for the two escrows with the role layout in
-  `docs/contracts.md` §8.
+- **Trustless Work integration**: the live testnet run through the V1 API (`tw1-live.ts`: deploy, fund,
+  verify, anchor, approve, release; `tw1-op.ts`: dispute, resolve), and a V2 client (escrow and deposit trail
+  → facts; anchor, approve-and-release, dispute; signs the XDR the API returns) tested against a fake of the
+  V2 API. Role layout in `docs/contracts.md` §8.
 - Verifier service (Hono), 113 tests, CI, Dockerfile, prompt-injection tests, offline demo script.
 
 ## Live evidence
@@ -61,11 +63,14 @@ against the invoice; partners fund the book and need to audit each decision with
 
 ## Stellar usage
 
-Trustless Work multi-release escrow V2 on Stellar testnet (USDC, Circle issuer). Verifier key as
-`approvers` + `releaseSigners` + `serviceProviders`; dispute resolver and admin separate; `conditionHash` in
-the milestone description; verdict anchored in the milestone evidence; releases via
-`approve-and-release-milestones`, signed with the verifier key. ed25519 signatures with Stellar keypairs so
-the verdict signer and the on-chain release signer are the same address.
+Trustless Work multi-release escrows on Stellar testnet (USDC, Circle issuer), deployed, funded, anchored,
+approved and released through their V1 API (`services/verifier/src/tw1-live.ts`; the self-service testnet key
+is V1). Verifier key as approver + releaseSigner + serviceProvider, dispute resolver a separate key;
+`conditionHash` in the milestone description; verdict anchored in the milestone evidence; approve and
+release are two transactions signed with the verifier key. The V2 client (plural roles, admin,
+`approve-and-release-milestones`) is implemented and tested against a fake of the V2 OpenAPI, not yet run:
+V2 credentials are issued by Trustless Work's backoffice. ed25519 signatures with Stellar keypairs, so the
+verdict signer and the on-chain release signer are the same address.
 
 ## Prior work vs built here
 
@@ -75,7 +80,8 @@ lenclaw; no code does.
 
 ## Next steps
 
-Run the two escrows on testnet end to end with the team's API key (client and script are ready); harden the
+Close the Piggy release on-chain with a photo of the chore (escrow already funded); move the service's live
+path to the V2 API once Trustless Work issues the credential (client implemented and tested); harden the
 release signer with a 2-of-2 approval (`approvalsTarget`) and, after the hackathon, an OpenZeppelin smart
-account with a spending policy as release signer (the V2 API signs with G wallets today); SCF continuation
-for both products.
+account with a spending policy as release signer (both APIs sign with G wallets today); SCF continuation for
+both products.
