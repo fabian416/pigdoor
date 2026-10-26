@@ -19,7 +19,7 @@
 import { serve } from "@hono/node-server";
 import { readFileSync } from "node:fs";
 import { Keypair } from "@witness/core";
-import { anthropicModel } from "@witness/semantic";
+import { anthropicModel, geminiModel } from "@witness/semantic";
 import { createApp } from "./app.ts";
 import { inMemoryEscrowClient, trustlessWorkClient } from "./escrow-client.ts";
 import { fileStore } from "./store.ts";
@@ -33,9 +33,22 @@ if (!process.env.VERIFIER_SECRET) console.warn(`VERIFIER_SECRET not set; ephemer
 // Lendoor's underwriter signs with its own address; without it, underwriting verdicts use the verifier key.
 const underwriterKey = process.env.UNDERWRITER_SECRET ? Keypair.fromSecret(process.env.UNDERWRITER_SECRET) : undefined;
 
-const hasModelCredentials = Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) || existsAntProfile();
-const model = hasModelCredentials ? anthropicModel() : undefined;
-if (!model) console.warn("no Anthropic credentials; only precomputed readings will be accepted");
+// El proveedor del modelo es intercambiable porque todo aguas abajo depende de
+// StructuredModel, no de un SDK. MODEL_PROVIDER=gemini lo cambia sin tocar nada
+// mas; el default sigue siendo Anthropic.
+const provider = (process.env.MODEL_PROVIDER ?? "anthropic").toLowerCase();
+const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) || existsAntProfile();
+const model =
+  provider === "gemini"
+    ? process.env.GEMINI_API_KEY
+      ? geminiModel({ model: process.env.MODEL_NAME })
+      : undefined
+    : hasModelCredentialsOrUndefined();
+function hasModelCredentialsOrUndefined() {
+  return hasAnthropic ? anthropicModel({ model: process.env.MODEL_NAME }) : undefined;
+}
+if (!model) console.warn(`no credentials for provider=${provider}; only precomputed readings will be accepted`);
+else console.log(`model provider: ${provider}${process.env.MODEL_NAME ? ` (${process.env.MODEL_NAME})` : ""}`);
 
 const escrow =
   process.env.ESCROW === "tw"

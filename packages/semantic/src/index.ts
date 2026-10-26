@@ -1,4 +1,5 @@
 export { DEFAULT_MODEL, anthropicModel } from "./model.ts";
+export { DEFAULT_GEMINI_MODEL, geminiModel } from "./gemini.ts";
 export type { ImageMediaType, ModelRequest, ModelResult, StructuredModel } from "./model.ts";
 export {
   DocumentReadingSchema,
