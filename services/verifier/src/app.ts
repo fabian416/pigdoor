@@ -140,6 +140,17 @@ export function createApp(config: AppConfig) {
     return next();
   });
 
+  /** A reviewer who opens the base URL gets a map, not a 404. */
+  app.get("/", (c) =>
+    c.json({
+      service: "witness verifier",
+      verifier: config.verifierKey.publicKey(),
+      health: `${config.publicUrl}/health`,
+      envelopes: `${config.publicUrl}/envelopes`,
+      source: "https://github.com/fabian416/witness",
+    }),
+  );
+
   app.get("/health", (c) =>
     c.json({
       ok: true,

@@ -52,6 +52,9 @@ describe("verifier service", () => {
     const { app, verifierKey } = harness();
     const res = await app.request("/health");
     expect(await res.json()).toMatchObject({ ok: true, verifier: verifierKey.publicKey(), model: false, autoRelease: false, acceptReadings: true, authenticated: false });
+    const root = await app.request("/");
+    expect(root.status).toBe(200);
+    expect(await root.json()).toMatchObject({ service: "witness verifier", verifier: verifierKey.publicKey(), health: "http://verifier.test/health" });
   });
 
   it("CORS: no browser origin is allowed unless configured; the demo page names itself", async () => {
