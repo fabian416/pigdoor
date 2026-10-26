@@ -63,8 +63,30 @@ underwriter signs a separate verdict before funding with its own key.
 ## Demo
 
 - Video: *pending*.
-- Public verifier URL: *pending* (`PUBLIC_URL` of the deployed service; the anchors point there).
+- Public verifier: `https://hackmeridian.api.lendoor.xyz` (`GET /health` reports the key it signs with). Demo
+  page: `https://hackmeridian.lendoor.xyz`. The live service runs in demo mode: in-memory escrow seeded with
+  the two milestones, the model on, readings accepted, no auto-release.
 - Offline, right now: `./scripts/demo.sh` runs the five verdicts of the two flows and re-verifies them.
+
+### Live verdicts on real photos (26 Oct, Claude reading the invoices, rules deciding)
+
+Two invoices from the demo page, sent as photos to the public verifier. The anchor lines below resolve to
+the signed envelopes; anyone can re-check them with `verify-cli` (hash of the canonical bytes, ed25519
+signature, agreement, condition):
+
+```
+verdict-v1 sha256=27eb6eba443793ffd2506a4144101ef4514d3d6a04d39f0931f72d5cd51e35fc uri=https://hackmeridian.api.lendoor.xyz/envelopes/27eb6eba443793ffd2506a4144101ef4514d3d6a04d39f0931f72d5cd51e35fc
+verdict-v1 sha256=c2aeeed6b36e176e06815fa8202304b0c469d947ef80de6531d6be705f6af586 uri=https://hackmeridian.api.lendoor.xyz/envelopes/c2aeeed6b36e176e06815fa8202304b0c469d947ef80de6531d6be705f6af586
+```
+
+| Photo | Decision | Reasons | Score |
+|---|---|---|---|
+| `factura-ok.jpg` (Casa Hogar Electro, lavarropas, 412.000 ARS, 27/10) | **ALLOW** | OK (10/10 criteria) | 93 |
+| `factura-mal.jpg` (Supermercado El Trébol, alimentos y bebidas) | **DENY** | MERCHANT_MISMATCH, ITEMS_MISMATCH | 30 |
+
+```bash
+node packages/semantic/src/verify-cli.ts "verdict-v1 sha256=27eb6eba443793ffd2506a4144101ef4514d3d6a04d39f0931f72d5cd51e35fc uri=https://hackmeridian.api.lendoor.xyz/envelopes/27eb6eba443793ffd2506a4144101ef4514d3d6a04d39f0931f72d5cd51e35fc"
+```
 
 ### On-chain evidence (Stellar testnet)
 
@@ -73,12 +95,11 @@ underwriter signs a separate verdict before funding with its own key.
 | Lendoor · Ana's washing machine (290 USDC) | *pending* | *pending* | *pending* |
 | Piggy · Sasha's bed (2 USDC) | *pending* | *pending* | *pending* |
 
-Verifier (release signer, in `approvers` + `releaseSigners` + `serviceProviders` of both escrows):
-[`GBBRAFA4UK67BNR4FOJKVCQDF5U2MDNKN45TPMWSLIKNLS4WLHHVYSZ6`](https://stellar.expert/explorer/testnet/account/GBBRAFA4UK67BNR4FOJKVCQDF5U2MDNKN45TPMWSLIKNLS4WLHHVYSZ6) ·
-Underwriter (signs Lendoor's funding verdict, no escrow role):
-[`GAFF3ADHA4VIM2UHH5L677LK7MNRIL6V2HQHSYXVHQONTLMO7ZVKXO6J`](https://stellar.expert/explorer/testnet/account/GAFF3ADHA4VIM2UHH5L677LK7MNRIL6V2HQHSYXVHQONTLMO7ZVKXO6J).
-Testnet keys, created 26 Oct for this submission. The role layout per escrow is in
-[`docs/contracts.md` §8](docs/contracts.md). Tx links go to `https://stellar.expert/explorer/testnet/tx/<hash>`.
+Verifier (release signer, in `approvers` + `releaseSigners` + `serviceProviders` of both escrows): the key
+the public service signs with, reported by its `/health` and carried by every envelope it signs; on 26 Oct
+that is [`GC32JANEEDIR5CZ47Z3GZKAHD36KHZXODHKKKMQLSAJZOPD7ICYVJMHR`](https://stellar.expert/explorer/testnet/account/GC32JANEEDIR5CZ47Z3GZKAHD36KHZXODHKKKMQLSAJZOPD7ICYVJMHR).
+The role layout per escrow is in [`docs/contracts.md` §8](docs/contracts.md). Tx links go to
+`https://stellar.expert/explorer/testnet/tx/<hash>`.
 **Every hash in `examples/` and in the tests is synthetic** (`111…`, `222…`, `ESCROW-DEMO-0001`) until
 the team's own transactions replace them.
 
@@ -118,7 +139,7 @@ Prerequisites: Node ≥ 24 and pnpm 10 (`corepack enable`).
 
 ```bash
 pnpm install
-pnpm typecheck && pnpm test          # 111 tests
+pnpm typecheck && pnpm test          # 113 tests
 ./scripts/demo.sh                     # offline: five signed envelopes in ./out, all re-verified
 
 # one live verdict on a photo (needs ANTHROPIC_API_KEY)
@@ -146,6 +167,7 @@ curl -s localhost:8787/health
 | `ANTHROPIC_API_KEY` | Credentials for the semantic verifier | unset → only readings in demo mode |
 | `AUTO_RELEASE` | `1` executes releases on ALLOW; otherwise the service reports the next step | report only |
 | `ACCEPT_READINGS` | `1` accepts precomputed readings instead of photos. Demo only; refused with `AUTO_RELEASE`; such envelopes carry `verifier: semantic:client_reading` and the response says `demo: true` | off |
+| `CORS_ORIGINS` | Comma-separated browser origins allowed to call the service directly. Normally a product backend calls it, not a page; the demo page is the exception and names itself here | none |
 | `ESCROW` | `memory` or `tw` (Trustless Work V2; needs `TW_API_KEY`, optional `TW_BASE_URL` and `STELLAR_NETWORK_PASSPHRASE`, testnet by default) | `memory` |
 | `DATA_DIR`, `PORT` | Envelope and case store; listen port | `./data`, `8787` |
 

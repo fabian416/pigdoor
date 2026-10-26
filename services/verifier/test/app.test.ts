@@ -21,7 +21,7 @@ const photo = { base64: Buffer.from("not really a jpeg, but bytes are bytes").to
 const photoEvidence = { ...evidence[0], sha256: sha256Hex(Buffer.from(photo.base64, "base64")) };
 const NOW = "2026-10-30T15:05:00Z";
 
-function harness(opts: { autoRelease?: boolean; model?: StructuredModel; acceptReadings?: boolean; apiToken?: string } = {}) {
+function harness(opts: { autoRelease?: boolean; model?: StructuredModel; acceptReadings?: boolean; apiToken?: string; corsOrigins?: string[] } = {}) {
   const verifierKey = Keypair.random();
   const escrow = inMemoryEscrowClient({ [`${AGREEMENT}/1`]: facts, [`${AGREEMENT}/2`]: facts });
   const store = memoryStore();
@@ -35,6 +35,7 @@ function harness(opts: { autoRelease?: boolean; model?: StructuredModel; acceptR
     autoRelease: opts.autoRelease ?? false,
     acceptReadings: opts.acceptReadings ?? !(opts.autoRelease ?? false),
     apiToken: opts.apiToken,
+    corsOrigins: opts.corsOrigins,
     now: () => NOW,
   });
   const post = (path: string, body: unknown, token?: string) =>
@@ -51,6 +52,34 @@ describe("verifier service", () => {
     const { app, verifierKey } = harness();
     const res = await app.request("/health");
     expect(await res.json()).toMatchObject({ ok: true, verifier: verifierKey.publicKey(), model: false, autoRelease: false, acceptReadings: true, authenticated: false });
+  });
+
+  it("CORS: no browser origin is allowed unless configured; the demo page names itself", async () => {
+    const closed = await harness().app.request("/health", { headers: { origin: "https://hackmeridian.lendoor.xyz" } });
+    expect(closed.headers.get("access-control-allow-origin")).toBeNull();
+
+    const { app } = harness({ corsOrigins: ["https://hackmeridian.lendoor.xyz"] });
+    const allowed = await app.request("/health", { headers: { origin: "https://hackmeridian.lendoor.xyz" } });
+    expect(allowed.headers.get("access-control-allow-origin")).toBe("https://hackmeridian.lendoor.xyz");
+    const other = await app.request("/health", { headers: { origin: "https://evil.test" } });
+    expect(other.headers.get("access-control-allow-origin")).not.toBe("https://evil.test");
+    // The preflight for a write passes without the bearer token; the write itself still needs it.
+    const preflight = await app.request(`/agreements/${AGREEMENT}/milestones/1/verify`, {
+      method: "OPTIONS",
+      headers: { origin: "https://hackmeridian.lendoor.xyz", "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-methods")).toContain("POST");
+  });
+
+  it("echoes the model reading next to the verdict when a photo was read", async () => {
+    const model: StructuredModel = async (req) => ({ ok: true, value: req.schema.parse(goodReading) });
+    const { post } = harness({ model, acceptReadings: false });
+    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence: [photoEvidence], image: photo });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.reading).toMatchObject({ merchantNameOnDocument: goodReading.merchantNameOnDocument });
+    expect(body.envelope).not.toHaveProperty("reading"); // observation only: never signed
   });
 
   it("happy path: verifies, signs, anchors into the escrow and releases", async () => {

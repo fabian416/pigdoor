@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { cors } from "hono/cors";
 import { z } from "zod";
 import {
   ConditionSchema,
@@ -58,6 +59,12 @@ export interface AppConfig {
   acceptReadings?: boolean;
   /** Shared bearer token the product backend must present. Unset means open (local dev only). */
   apiToken?: string;
+  /**
+   * Browser origins allowed to call this directly. Empty means none, which is the
+   * right default: normally a product backend calls us, not a page. The demo page
+   * is the exception and names itself here.
+   */
+  corsOrigins?: string[];
 }
 
 const VerifyBody = z.object({
@@ -106,6 +113,16 @@ export function createApp(config: AppConfig) {
   const app = new Hono();
 
   app.use("*", bodyLimit({ maxSize: MAX_BODY_BYTES, onError: (c) => c.json({ error: "body too large" }, 413) }));
+  if (config.corsOrigins?.length) {
+    app.use(
+      "*",
+      cors({
+        origin: config.corsOrigins,
+        allowMethods: ["GET", "POST", "OPTIONS"],
+        allowHeaders: ["Content-Type", "Authorization"],
+      }),
+    );
+  }
 
   /** Malformed JSON is the caller's fault, not a 500. */
   const readJson = async (c: { req: { json: () => Promise<unknown> } }): Promise<unknown | undefined> => {
@@ -202,6 +219,9 @@ export function createApp(config: AppConfig) {
     let semantic: CriterionResult[];
     let score: number | undefined;
     let demo = false;
+    // Echoed back so a caller can show WHAT the model saw next to WHAT the rules
+    // decided. It is observation only: nothing downstream reads it.
+    let reading: unknown;
     if (body.data.reading && !config.acceptReadings) {
       return c.json({ error: "precomputed readings are not accepted; send the image" }, 403);
     }
@@ -224,6 +244,7 @@ export function createApp(config: AppConfig) {
       }
       semantic = outcome.criteria;
       score = outcome.score;
+      reading = outcome.reading;
     } else if (body.data.reading) {
       const parsed = readingSchemaFor(condition).safeParse(body.data.reading);
       if (!parsed.success) return c.json({ error: `reading does not match a ${condition.kind} condition`, issues: parsed.error.issues }, 400);
@@ -283,7 +304,7 @@ export function createApp(config: AppConfig) {
       }
     }
 
-    return c.json({ id, envelope, anchor, anchorError, nextStep: step, status: state.status, release, releaseError, disputeError, demo });
+    return c.json({ id, envelope, anchor, anchorError, nextStep: step, status: state.status, release, releaseError, disputeError, demo, reading });
   });
 
   /** The anchor target: exact canonical bytes, content-addressed. */
