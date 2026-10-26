@@ -1,0 +1,12 @@
+{
+  "merchantNameOnDocument": "CASA HOGAR ELECTRO S.R.L.",
+  "merchantMatches": "PASS",
+  "dateOnDocument": "2026-10-27",
+  "itemsOnDocument": ["Lavarropas automatico 8kg", "Envio"],
+  "itemsMatch": "PASS",
+  "totalOnDocument": "412000",
+  "currencyOnDocument": "ARS",
+  "legibility": 92,
+  "confidence": 94,
+  "notes": "Printed invoice type B, stamped."
+}
