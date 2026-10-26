@@ -188,6 +188,14 @@ libera con `approve-and-release-milestones` y escala con `dispute-milestones`; c
 XDR que devuelve la API con la clave del verificador y lo manda a `POST /stellar/send-transaction`.
 `fundedAt` es el depósito en el activo del trustline con el que la suma alcanza el total de los hitos.
 
+**Corrida real (26/10):** la key de testnet que da dapp.trustlesswork.com es de la API **V1**
+(`dev.api.trustlesswork.com`); la V2 exige credencial emitida por el backoffice. Por eso la evidencia
+on-chain del README salió de `services/verifier/src/tw1-live.ts` (V1: roles singulares `approver`,
+`serviceProvider`, `platformAddress`, `releaseSigner`, `disputeResolver`; `receiver` por hito; índices
+`"0"`; `approve-milestone` y `release-milestone-funds` son dos transacciones) corriendo dentro del
+contenedor del servicio público, con su misma clave y su mismo almacén de sobres. `tw1-op.ts` hace
+disputa y resolución (`distributions: [{ address, amount }]`).
+
 Las claves del verificador y del underwriter son fijas por despliegue (`VERIFIER_SECRET`,
 `UNDERWRITER_SECRET`); sus direcciones públicas están en el README para que el backend las copie en
 los roles. La smart account de OpenZeppelin con política de gasto como `releaseSigner` queda como

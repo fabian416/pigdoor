@@ -51,8 +51,13 @@ against the invoice; partners fund the book and need to audit each decision with
 
 - Two real verdicts on invoice photos through the public verifier (ALLOW 93 on the right invoice, DENY on a
   supermarket receipt), anchored and re-verifiable: anchor lines in the README.
-- On-chain (Stellar testnet, Trustless Work multi-release V2): *pending* — contract ids, deploy/fund/release
-  tx hashes go in the README table.
+- On-chain (Stellar testnet, Trustless Work multi-release escrows, USDC), all links in the README table:
+  Lendoor escrow `CDGQRKMQHLROLX6L6FW6VQQI7BQXRCKQ7IDJUN5QZLUTZQR2E3U6WJ7W` deployed with the conditionHash,
+  funded 10 USDC, real invoice read by the model, ALLOW anchored in the milestone evidence, approved and
+  released by the verifier key, store paid. A first attempt with a mismatched receiver was refused
+  (DENY · DESTINATION_MISMATCH) and refunded through dispute + resolver. Piggy escrow
+  `CCTXZHRDGY5TSIUONXZK6MVKONPXONKM4GMXOIEJHH4UVL323YJ7UY4H` deployed and funded (2 USDC), release pending a
+  photo.
 
 ## Stellar usage
 

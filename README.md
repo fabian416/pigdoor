@@ -88,12 +88,34 @@ verdict-v1 sha256=c2aeeed6b36e176e06815fa8202304b0c469d947ef80de6531d6be705f6af5
 node packages/semantic/src/verify-cli.ts "verdict-v1 sha256=27eb6eba443793ffd2506a4144101ef4514d3d6a04d39f0931f72d5cd51e35fc uri=https://hackmeridian.api.lendoor.xyz/envelopes/27eb6eba443793ffd2506a4144101ef4514d3d6a04d39f0931f72d5cd51e35fc"
 ```
 
-### On-chain evidence (Stellar testnet)
+### On-chain evidence (Stellar testnet, Trustless Work multi-release escrows, USDC)
 
-| Flow | Escrow contract | Deploy / fund tx | Release tx |
-|---|---|---|---|
-| Lendoor · Ana's washing machine (290 USDC) | *pending* | *pending* | *pending* |
-| Piggy · Sasha's bed (2 USDC) | *pending* | *pending* | *pending* |
+Run on 26 Oct 09:40–10:00 UTC with `services/verifier/src/tw1-live.ts` from inside the public verifier
+(same key, same envelope store), through the Trustless Work **V1** testnet API: the self-service key from
+dapp.trustlesswork.com is a V1 credential, and V2 keys are issued by their backoffice. Milestones are
+10 USDC and 2 USDC because the Circle faucet gives 20 USDC per two hours; the conditions committed on-chain
+(`examples/*/condition.testnet.json`) name the real testnet accounts.
+
+| Step | Lendoor · Ana's washing machine, 10 USDC to the store | Piggy · Sasha's bed, 2 USDC to Sasha |
+|---|---|---|
+| Escrow contract | [`CDGQRKMQ…U6WJ7W`](https://stellar.expert/explorer/testnet/contract/CDGQRKMQHLROLX6L6FW6VQQI7BQXRCKQ7IDJUN5QZLUTZQR2E3U6WJ7W) | [`CCTXZHRD…J7UY4H`](https://stellar.expert/explorer/testnet/contract/CCTXZHRDGY5TSIUONXZK6MVKONPXONKM4GMXOIEJHH4UVL323YJ7UY4H) |
+| Deploy, with `conditionHash` in the milestone | [`a006801c…`](https://stellar.expert/explorer/testnet/tx/a006801cb980499b8e77f87bfa176fb4af557e2b3f0bf28164b25013b74b79a7) | [`809e2b42…`](https://stellar.expert/explorer/testnet/tx/809e2b42ffb00a96472f427aae8763d4dae4c1d27acacd20f21bd13c89785150) |
+| Fund | [`c2a79c8b…`](https://stellar.expert/explorer/testnet/tx/c2a79c8b2a1c537346aca8285b440480faafa501188419a21adc63d3bf081e38) | [`2fd9c340…`](https://stellar.expert/explorer/testnet/tx/2fd9c3404e4385a5c7edf4699721e7445ffe5a2ed43be68ad088ee74fb136064) |
+| Verdict (real photo, Claude reading, rules deciding) | **ALLOW**, score 95, 10/10 criteria. Envelope [`839df0a1…`](https://hackmeridian.api.lendoor.xyz/envelopes/839df0a154d7056b76c61a4eade55915237d85d0e4c1e4558672b6407cc3b7f5) | pending a photo of the bed |
+| Anchor line written in the milestone evidence | [`3e10e6dd…`](https://stellar.expert/explorer/testnet/tx/3e10e6dd16290bff1ea81eaffe0426891bfe40cd536ed30cf1f52f8e3bf46725) | — |
+| Approve + release, signed by the verifier key | [`12b3d6a0…`](https://stellar.expert/explorer/testnet/tx/12b3d6a072977670db663516d988b7a197c4fadf362e2ec6d80eedf05ad6644f) · [`b926a776…`](https://stellar.expert/explorer/testnet/tx/b926a776191a857333f3fa17683a05ce8e49321e99f86de93e2b3892c59c4461) | — |
+| Receiver balance after | store `GDJVBJGJ…` 9.97 USDC (0.30 % Trustless Work fee) | — |
+
+**The verifier refusing, on-chain.** The first Lendoor attempt committed the example condition, whose
+`receiver` is a placeholder address, so the escrow paid someone the condition did not name. The invoice
+read fine (10/10 semantic criteria) and the verdict was still **DENY · DESTINATION_MISMATCH**, anchored
+in escrow [`CCX5JWHY…AV76UFJ`](https://stellar.expert/explorer/testnet/contract/CCX5JWHYM6HELA6WIBNKEBDK4TDHCLW7DZ2KOR7XYUEAJZT2PAV76UFJ)
+([anchor tx](https://stellar.expert/explorer/testnet/tx/20f3a5008f5c755b39265089946aed739a7e29f251ef9fb3c7e4de5eee6721d1),
+envelope [`0c9aa005…`](https://hackmeridian.api.lendoor.xyz/envelopes/0c9aa005d3f1ac1ff365c623dd6be0acfd4ff4e19406b1979a705702e2681b43)).
+Nothing moved. The funds came back the way the lifecycle says they do: the verifier
+[disputed](https://stellar.expert/explorer/testnet/tx/1905b06567ec370e3c6b06273fd85ddd73939788b6be8d4c52c7b64ed74c15dd)
+the milestone and the dispute resolver
+[returned the 10 USDC to the payer](https://stellar.expert/explorer/testnet/tx/2eff0eeb18934427839ee135d15c36e08421ec48294461d30e24bb98f1dbef66).
 
 Verifier (release signer, in `approvers` + `releaseSigners` + `serviceProviders` of both escrows): the key
 the public service signs with, reported by its `/health` and carried by every envelope it signs; on 26 Oct
@@ -114,12 +136,13 @@ disputes, the verifier service, tests, CI, docs. First commit 25 Oct 13:56 UTC.
 [lenclaw](https://github.com/fabian416/lenclaw) (agent credit on Base, March 2026). The "model proposes,
 rules decide" pattern comes from lenclaw; no code does.
 
-**Status of the escrow integration:** the Trustless Work V2 client (`services/verifier/src/trustless-work.ts`)
-is implemented against the V2 OpenAPI (read escrow and deposit trail, write the anchor, approve-and-release,
-dispute, signing the XDR the API returns) and tested against a fake of that API, signatures included. The
-on-chain evidence table above says whether it has run against testnet. The OpenZeppelin smart-account
-release signer is roadmap: the V2 API builds every transaction with a `G` wallet as source, so a contract
-account cannot release through it today.
+**Status of the escrow integration:** the testnet run above went through the Trustless Work V1 API with
+`services/verifier/src/tw1-live.ts` (deploy, fund, verify, anchor, approve, release; `tw1-op.ts` for dispute
+and resolve). The V2 client (`services/verifier/src/trustless-work.ts`, used by the service with `ESCROW=tw`)
+is implemented against the V2 OpenAPI and tested against a fake of that API, signatures included, but has
+not run against testnet: V2 credentials are issued by Trustless Work's backoffice, not self-service. The
+OpenZeppelin smart-account release signer is roadmap: both APIs build every transaction with a `G` wallet as
+source, so a contract account cannot release through them today.
 
 ## Layout
 
@@ -128,7 +151,8 @@ account cannot release through it today.
 | `packages/core` | Condition (purchase / task, `settlement.role`), RFC 8785 canonicalization and sha256, criteria and `decide()`, deterministic escrow checks, Lendoor underwriter, signed `VerificationEnvelope`, anchoring, milestone lifecycle, dispute case. Pure TypeScript. |
 | `packages/semantic` | Claude with structured outputs: invoice reader (purchases) and task-photo reader (chores); the trigger agent (payer's words → condition draft); `cli.ts` (one verdict) and `verify-cli.ts` (re-verify an anchored envelope). |
 | `services/verifier` | The verifier as its own process with its own key: `underwrite`, `verify`, content-addressed `GET /envelopes/:sha256` (the anchor target), challenges. Escrow behind `EscrowClient`: in-memory for the demo, Trustless Work V2 (`trustless-work.ts`) with `ESCROW=tw`. `tw-deploy.ts` deploys and funds an escrow from `examples/*/escrow.json` with the `conditionHash` in the milestone. |
-| `examples/lendoor`, `examples/piggy` | The deck's two flows, synthetic, plus `escrow.json`: the Trustless Work deploy spec (roles, milestone, USDC trustline). |
+| `examples/lendoor`, `examples/piggy` | The deck's two flows, synthetic, plus `escrow.json` (the V2 deploy spec) and `condition.testnet.json` (the conditions committed on-chain, real testnet accounts). |
+| `demo` | One page that takes the photo and shows the verdict next to what the model read (Vite + React), by Lucho. |
 | `docs/contracts.md` | The JSON objects the backend and the verifier exchange, endpoints, lifecycle (Spanish). |
 | `scripts/demo.sh` | Five verdicts, five re-verifications, offline. |
 | `Dockerfile`, `.github/workflows/ci.yml` | Container for the service; typecheck, tests and the demo on every push. |
