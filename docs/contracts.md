@@ -146,6 +146,44 @@ el resolutor lo re-verifique.
 El backend de producto llama a `verify` cuando el proveedor sube la evidencia; el servicio lee los
 hechos del escrow por su cuenta (`EscrowClient`), nunca confía en los que le manden.
 
+## 8. Roles del escrow al desplegar (Trustless Work V2, `POST /escrow/multi-release/v2/deploy`)
+
+Lo que el backend manda al crear cada escrow. Las reglas entre paréntesis son las del DTO
+`MultiReleaseRolesV2Dto` de la API V2 (`beta.api.trustlesswork.com`): `disputeResolvers` **no puede
+solaparse con ningún otro rol**, `admin` **debe ser distinto de todos**, el resto puede repetirse. El
+verificador firma la liberación con `approve-and-release-milestones`, que exige al firmante en
+`approvers` **y** `releaseSigners` (lo verifica el contrato); y escribe la línea de anclaje con
+`change-milestone-status`, que exige un `serviceProvider`. Por eso va en los tres. No es admin, no es
+resolutor y no fondea: puede aprobar y liberar hitos que ya existen, nada más.
+
+| Rol | Lendoor · Ana (290 USDC) | Piggy · Sasha (2 USDC) | Por qué |
+|---|---|---|---|
+| `approvers` | `[VERIFIER]` | `[VERIFIER]` | quien aprueba el hito es el veredicto firmado |
+| `releaseSigners` | `[VERIFIER]` | `[VERIFIER]` | la misma clave que firma el sobre libera la plata |
+| `serviceProviders` | `[VERIFIER]` | `[VERIFIER]` | para escribir `verdict-v1 sha256=… uri=…` en `evidence` |
+| `disputeResolvers` | `[LENDOOR_OPS]` | `[PARENT]` | resuelve REVIEW y ejecuta el reembolso tras `notAfter`; no puede ser ninguna otra clave |
+| `platform` | `[LENDOOR_BACKEND]` | `[PIGGY_BACKEND]` | cobra `platformFee` (poner `0`; si la API lo rechaza, el mínimo que acepte) |
+| `admin` | `[LENDOOR_ADMIN]` | `[PIGGY_ADMIN]` | `update`, `manage-milestones`, `extend-ttl`; clave aparte, distinta de todas |
+| `observers` | `[FUNDER]` (opcional) | `[]` | solo lectura; el socio que fondea el libro de Lendoor |
+| `signer` (deploy) y `signer` (fund) | `LENDOOR_BACKEND` | `PIGGY_BACKEND` (o `PARENT`) | quien despliega y fondea; el pagador no es un rol |
+| `milestones[0].receiver` | `STORE` | `SASHA` | el `receiver` de la condición; el verificador compara los dos |
+| `milestones[0].amount` | `290` | `2` | igual a `maxAmount` de la condición |
+| `milestones[0].description` | `condition-v1 sha256=<conditionHash>` | idem | el hash comprometido; sin él todo veredicto es REVIEW |
+| `milestones[0].approvalsTarget` | `1` (default) | `1` | con `2` y `approvers = [VERIFIER, PLATFORM]` el verificador solo no puede liberar: endurecimiento para después del hackathon |
+| `trustline` | `{ "contractId": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA" }` | idem | USDC de Circle en testnet (SAC) |
+| `engagementId` | `lendoor-ana-0001` | `piggy-sasha-0001` | el `agreementId` de los sobres es el `contractId` que devuelve el deploy, no este |
+
+Cuentas: cada `G...` debe existir en testnet (friendbot). `STORE` y `SASHA` necesitan trustline a USDC
+para cobrar; quien fondea necesita saldo USDC; el verificador solo XLM para fees (la API arma la
+transacción con el firmante como cuenta origen). El índice del hito en la API es 0; en este servicio
+es `"1"` (`index = Number(milestoneId) - 1`).
+
+Las claves del verificador y del underwriter son fijas por despliegue (`VERIFIER_SECRET`,
+`UNDERWRITER_SECRET`); sus direcciones públicas están en el README para que el backend las copie en
+los roles. La smart account de OpenZeppelin con política de gasto como `releaseSigner` queda como
+roadmap: la API V2 construye cada transacción con una wallet `G` como firmante, así que una cuenta
+contrato no puede liberar a través de ella (habría que armar la invocación por fuera de la API).
+
 ## Códigos de razón
 
 La lista completa y normativa es `REASON_CODES` en `packages/core/src/criteria.ts`:

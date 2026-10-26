@@ -73,9 +73,14 @@ underwriter signs a separate verdict before funding with its own key.
 | Lendoor · Ana's washing machine (290 USDC) | *pending* | *pending* | *pending* |
 | Piggy · Sasha's bed (2 USDC) | *pending* | *pending* | *pending* |
 
-Verifier (release signer) address: *pending* · Underwriter address: *pending*. Links go to
-`https://stellar.expert/explorer/testnet/tx/<hash>`. **Every hash in `examples/` and in the tests is
-synthetic** (`111…`, `222…`, `ESCROW-DEMO-0001`) until the team's own transactions replace them.
+Verifier (release signer, in `approvers` + `releaseSigners` + `serviceProviders` of both escrows):
+[`GBBRAFA4UK67BNR4FOJKVCQDF5U2MDNKN45TPMWSLIKNLS4WLHHVYSZ6`](https://stellar.expert/explorer/testnet/account/GBBRAFA4UK67BNR4FOJKVCQDF5U2MDNKN45TPMWSLIKNLS4WLHHVYSZ6) ·
+Underwriter (signs Lendoor's funding verdict, no escrow role):
+[`GAFF3ADHA4VIM2UHH5L677LK7MNRIL6V2HQHSYXVHQONTLMO7ZVKXO6J`](https://stellar.expert/explorer/testnet/account/GAFF3ADHA4VIM2UHH5L677LK7MNRIL6V2HQHSYXVHQONTLMO7ZVKXO6J).
+Testnet keys, created 26 Oct for this submission. The role layout per escrow is in
+[`docs/contracts.md` §8](docs/contracts.md). Tx links go to `https://stellar.expert/explorer/testnet/tx/<hash>`.
+**Every hash in `examples/` and in the tests is synthetic** (`111…`, `222…`, `ESCROW-DEMO-0001`) until
+the team's own transactions replace them.
 
 ## Built at HackMeridian vs prior work
 
@@ -110,7 +115,7 @@ Prerequisites: Node ≥ 24 and pnpm 10 (`corepack enable`).
 
 ```bash
 pnpm install
-pnpm typecheck && pnpm test          # 96 tests
+pnpm typecheck && pnpm test          # 99 tests
 ./scripts/demo.sh                     # offline: five signed envelopes in ./out, all re-verified
 
 # one live verdict on a photo (needs ANTHROPIC_API_KEY)
