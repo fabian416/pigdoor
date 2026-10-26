@@ -2,7 +2,9 @@
   "name": "witness",
   "private": true,
   "type": "module",
+  "license": "Apache-2.0",
   "scripts": {
+    "start": "node services/verifier/src/server.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },

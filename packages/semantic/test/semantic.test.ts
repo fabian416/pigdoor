@@ -45,7 +45,7 @@ describe("semantic verifier: the model reads, the rules decide", () => {
 
     expect(calls[0].hasImage).toBe(true);
     expect(calls[0].text).toContain("Casa Hogar Electro");
-    expect(calls[0].text).not.toContain("100"); // the model never learns the maximum
+    expect(calls[0].text).not.toContain("290"); // the model never learns the maximum
     expect(c.doc_merchant_matches.result).toBe("PASS");
     expect(c.doc_items_match.result).toBe("PASS");
     expect(c.doc_date_within_window.result).toBe("PASS");
@@ -71,6 +71,21 @@ describe("semantic verifier: the model reads, the rules decide", () => {
     const verdict = decide(outcome.criteria, outcome.score);
     expect(verdict.decision).toBe("DENY");
     expect(verdict.reasons).toEqual(["MERCHANT_MISMATCH", "ITEMS_MISMATCH"]);
+  });
+
+  it("document dates are compared by day: an invoice issued the day the condition was frozen is inside the window", () => {
+    const sameDay = { ...condition, window: { notBefore: "2026-10-25T18:30:00Z", notAfter: "2026-11-08T23:59:59Z" } };
+    const c = byId(assessReading(sameDay, { ...goodReading, dateOnDocument: "2026-10-25" }));
+    expect(c.doc_date_within_window.result).toBe("PASS");
+    expect(byId(assessReading(sameDay, { ...goodReading, dateOnDocument: "2026-11-08" })).doc_date_within_window.result).toBe("PASS");
+    expect(byId(assessReading(sameDay, { ...goodReading, dateOnDocument: "2026-11-09" })).doc_date_within_window.result).toBe("FAIL");
+    expect(byId(assessReading(sameDay, { ...goodReading, dateOnDocument: "27/10/2026" })).doc_date_within_window.code).toBe("DOC_DATE_UNREADABLE");
+  });
+
+  it("a total with no currency on the document takes the caller's local-currency rate, never the asset", () => {
+    const noCurrency = { ...goodReading, currencyOnDocument: null, totalOnDocument: "412000" };
+    expect(byId(assessReading(condition, noCurrency, { currency: "ARS", unitsPerAsset: 1450 })).doc_total_within_max).toMatchObject({ result: "PASS", mandatory: true });
+    expect(byId(assessReading(condition, noCurrency)).doc_total_within_max).toMatchObject({ result: "UNKNOWN", code: "DOC_CURRENCY_UNKNOWN", mandatory: false });
   });
 
   it("rejection path: receipt dated in August", () => {

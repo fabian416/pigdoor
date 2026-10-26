@@ -39,7 +39,8 @@ export function anthropicModel(options: { client?: Anthropic; model?: string } =
     try {
       const response = await client.messages.parse({
         model,
-        max_tokens: 4000,
+        // Thinking tokens count against max_tokens on this model; leave room.
+        max_tokens: 16000,
         system: req.system,
         messages: [{ role: "user", content }],
         output_config: { effort: "high", format: zodOutputFormat(req.schema) },
@@ -54,6 +55,10 @@ export function anthropicModel(options: { client?: Anthropic; model?: string } =
     } catch (error) {
       if (error instanceof Anthropic.APIError) {
         return { ok: false, code: "MODEL_ERROR", message: `API ${error.status}: ${error.message}` };
+      }
+      // parse() throws a plain AnthropicError on truncated or invalid JSON.
+      if (error instanceof Anthropic.AnthropicError) {
+        return { ok: false, code: "MODEL_OUTPUT_INVALID", message: error.message };
       }
       throw error;
     }

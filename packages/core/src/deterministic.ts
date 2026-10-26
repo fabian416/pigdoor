@@ -1,28 +1,32 @@
+import { z } from "zod";
 import { toStroops } from "./amount.ts";
-import { conditionHash, type Condition } from "./condition.ts";
+import { Amount, conditionHash, type Condition } from "./condition.ts";
 import type { CriterionResult, Verifier } from "./criteria.ts";
 
 /**
  * What the escrow says, read from chain or from the escrow provider's API.
  * The deterministic verifier compares these facts with the frozen condition.
  */
-export interface EscrowFacts {
+export const EscrowFactsSchema = z.object({
   /** Who the milestone pays. */
-  milestoneReceiver: string;
+  milestoneReceiver: z.string().min(1),
   /** How much the milestone pays, decimal string in the condition's asset. */
-  milestoneAmount: string;
+  milestoneAmount: Amount,
   /** When funding was confirmed on-chain; null if not yet. */
-  fundedAt: string | null;
-  fundingTxHash?: string;
+  fundedAt: z.iso.datetime().nullable(),
+  fundingTxHash: z.string().min(1).optional(),
   /** When the beneficiary submitted the evidence. */
-  evidenceSubmittedAt: string;
+  evidenceSubmittedAt: z.iso.datetime(),
   /**
    * The condition hash recorded on the escrow when it was created (e.g. in the
    * milestone description). Binds the verification to what the payer actually
    * committed to, so nobody can swap in a laxer condition afterwards.
    */
-  committedConditionHash?: string;
-}
+  committedConditionHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  /** Milestone status as the escrow reports it. Never taken from the caller. */
+  status: z.enum(["FUNDED", "RELEASED", "REFUNDED", "DISPUTED"]).optional(),
+});
+export type EscrowFacts = z.infer<typeof EscrowFactsSchema>;
 
 const NAME = "deterministic";
 
@@ -44,14 +48,13 @@ function criterion(
 
 /**
  * Binary checks, no model, no cost. They prove the money goes where it was
- * committed to go. Integrity checks (committed condition, funding) always run;
- * settlement checks (destination, amount, window) only when the escrow pays a
- * third party (`settlement.role = escrow_funded`). When the release is itself
- * the payment to the payee there is no settlement to check.
+ * committed to go: committed condition, funding, destination, amount, window.
+ * They run for both settlement roles. For `payee_prepaid` there is no external
+ * settlement to verify (the release is the payment), so these are the escrow's
+ * own integrity checks rather than a second verifier.
  */
 export function checkDeterministic(condition: Condition, facts: EscrowFacts): CriterionResult[] {
   const out: CriterionResult[] = [];
-  const integrityOnly = condition.settlement.role === "payee_prepaid";
 
   const expectedHash = conditionHash(condition);
   if (!facts.committedConditionHash) {
@@ -77,8 +80,6 @@ export function checkDeterministic(condition: Condition, facts: EscrowFacts): Cr
       funded ? `funding confirmed in ${facts.fundingTxHash}` : "escrow funding not confirmed on-chain",
     ),
   );
-  if (integrityOnly) return out;
-
   const sameReceiver = facts.milestoneReceiver === condition.receiver;
   out.push(
     criterion(

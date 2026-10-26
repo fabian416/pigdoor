@@ -58,6 +58,11 @@ describe("task verifier (Piggy): the model describes, the rules decide", () => {
     expect(c.task_done.result).toBe("FAIL");
   });
 
+  it("done-when statements match without regard to accents, case or spacing", () => {
+    const paraphrased: TaskReading = { ...done, doneWhenObserved: ["La cama esta tendida", "LA ALMOHADA  está en su lugar", "no hay ropa sobre la cama "] };
+    expect(byId(assessTaskReading(condition, paraphrased)).task_done.result).toBe("PASS");
+  });
+
   it("a model that says PASS without observing every statement only reaches review", () => {
     const partial: TaskReading = { ...done, doneWhenObserved: ["la cama está tendida"] };
     const criteria = assessTaskReading(condition, partial);

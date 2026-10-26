@@ -48,7 +48,7 @@ export const goodFacts: EscrowFacts = {
   milestoneReceiver: store.publicKey(),
   milestoneAmount: "290",
   fundedAt: "2026-10-25T18:00:00Z",
-  fundingTxHash: "8769aba1b652b01ee2aafc9083fd1a775722690757e560fb43bd49f98e4856cf",
+  fundingTxHash: "1111111111111111111111111111111111111111111111111111111111111111",
   evidenceSubmittedAt: "2026-10-30T15:00:00Z",
   committedConditionHash: conditionHash(condition),
 };
@@ -57,7 +57,7 @@ export const taskFacts: EscrowFacts = {
   milestoneReceiver: sasha.publicKey(),
   milestoneAmount: "2",
   fundedAt: "2026-10-25T21:00:00Z",
-  fundingTxHash: "a0ed118a0a02ad87e09f0a743cc90d32199c931baf01b052cf49393e85719850",
+  fundingTxHash: "2222222222222222222222222222222222222222222222222222222222222222",
   evidenceSubmittedAt: "2026-10-26T18:30:00Z",
   committedConditionHash: conditionHash(taskCondition),
 };

@@ -14,7 +14,7 @@ const evidence = example("lendoor/evidence.json");
 const goodReading = example("lendoor/reading-good.json");
 const wrongShop = example("lendoor/reading-wrong-shop.json");
 
-const AGREEMENT = "CADMJSOMBSHUW2LMETBUOVH2CSVY3EDISY4V7UMH7TDU2LE5XRCEULAG";
+const AGREEMENT = "ESCROW-DEMO-0001";
 
 /** A stand-in photo and the evidence item that names its bytes. */
 const photo = { base64: Buffer.from("not really a jpeg, but bytes are bytes").toString("base64"), mediaType: "image/jpeg" as const };
@@ -55,8 +55,8 @@ describe("verifier service", () => {
 
   it("happy path: verifies, signs, anchors into the escrow and releases", async () => {
     const model: StructuredModel = async (req) => ({ ok: true, value: req.schema.parse(goodReading) });
-    const { post, escrow, verifierKey, app } = harness({ autoRelease: true, model });
-    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence: [photoEvidence], image: photo });
+    const { post, escrow, verifierKey, app } = harness({ autoRelease: true, model, apiToken: "t" });
+    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence: [photoEvidence, evidence[0]], image: photo }, "t");
     expect(res.status).toBe(200);
     const body = await res.json();
 
@@ -64,7 +64,15 @@ describe("verifier service", () => {
     expect(body.nextStep).toMatchObject({ action: "RELEASE", actor: "verifier" });
     expect(body.status).toBe("RELEASED");
     expect(body.release.txHash).toMatch(/^fake-/);
+    expect(body.demo).toBe(false);
     expect(verifyEnvelope(body.envelope)).toEqual({ ok: true });
+    // Only the evidence item the model actually looked at is signed.
+    expect(body.envelope.evidence).toHaveLength(1);
+    expect(body.envelope.evidence[0].sha256).toBe(photoEvidence.sha256);
+
+    // A second verify on a released milestone is refused before anything is signed.
+    const again = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence: [photoEvidence], image: photo }, "t");
+    expect(again.status).toBe(409);
 
     // The anchor line landed in the escrow and resolves back to the same envelope through the service itself.
     const row = escrow.milestones.get(`${AGREEMENT}/1`)!;
@@ -167,6 +175,9 @@ describe("verifier service", () => {
     expect(body.envelope.criteria.map((c: { id: string }) => c.id)).toEqual([
       "condition_matches_escrow",
       "escrow_funded",
+      "destination_matches",
+      "amount_within_max",
+      "evidence_within_window",
       "photo_legible",
       "task_visible",
       "task_done",
@@ -216,6 +227,40 @@ describe("verifier service", () => {
       headers: { "content-type": "application/json" },
     });
     expect((await low.json()).fundable).toBe(false);
+  });
+
+  it("envelopes built from client readings say so, and never trigger a release", async () => {
+    const { post } = harness();
+    const body = await (await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: goodReading })).json();
+    expect(body.demo).toBe(true);
+    expect(body.envelope.criteria.some((c: { verifier: string }) => c.verifier === "semantic:client_reading")).toBe(true);
+  });
+
+  it("a model outage is a 503 to retry, not a verdict: nothing signed, nothing disputed", async () => {
+    const model: StructuredModel = async () => ({ ok: false, code: "MODEL_ERROR", message: "529 overloaded" });
+    const { post, escrow, store } = harness({ model });
+    const res = await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence: [photoEvidence], image: photo });
+    expect(res.status).toBe(503);
+    expect(store.listEnvelopeIds()).toHaveLength(0);
+    expect(escrow.milestones.get(`${AGREEMENT}/1`)!.disputed).toBeUndefined();
+  });
+
+  it("a challenge must carry the condition the envelope was built for", async () => {
+    const { post } = harness();
+    const verified = await (await post(`/agreements/${AGREEMENT}/milestones/1/verify`, { condition, evidence, reading: goodReading })).json();
+    const other = example("piggy/condition.json");
+    const res = await post(`/envelopes/${verified.id}/challenge`, { openedBy: "payer", note: "x", condition: other });
+    expect(res.status).toBe(409);
+  });
+
+  it("refuses to start with auto-release and no token", () => {
+    expect(() => harness({ autoRelease: true, acceptReadings: false })).toThrow(/apiToken/);
+  });
+
+  it("malformed JSON is a 400", async () => {
+    const { app } = harness();
+    const res = await app.request(`/agreements/${AGREEMENT}/milestones/1/verify`, { method: "POST", body: "{not json", headers: { "content-type": "application/json" } });
+    expect(res.status).toBe(400);
   });
 
   it("rejects malformed input and unknown milestones", async () => {

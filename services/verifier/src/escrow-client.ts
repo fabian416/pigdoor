@@ -6,9 +6,13 @@ import type { EscrowFacts } from "@witness/core";
  * and switches to the real API by swapping one object.
  */
 export interface EscrowClient {
-  /** What the escrow says about a milestone right now. */
+  /** What the escrow says about a milestone right now, including its status. */
   getMilestoneFacts(agreementId: string, milestoneId: string): Promise<EscrowFacts>;
-  /** Writes the anchor line into the milestone's evidence field. */
+  /**
+   * Writes the anchor line into the milestone's evidence field. In Trustless
+   * Work this is signed by a serviceProvider, so either the verifier key is
+   * also listed there or the product backend performs this call.
+   */
   writeAnchor(agreementId: string, milestoneId: string, anchorLine: string): Promise<void>;
   /** Approves and releases the milestone with the verifier's key. */
   releaseMilestone(agreementId: string, milestoneId: string): Promise<{ txHash: string }>;
@@ -36,7 +40,9 @@ export function inMemoryEscrowClient(seed: Record<string, EscrowFacts> = {}) {
 
   const client: EscrowClient = {
     async getMilestoneFacts(a, m) {
-      return get(a, m).facts;
+      const row = get(a, m);
+      const status = row.released ? "RELEASED" : row.disputed ? "DISPUTED" : "FUNDED";
+      return { ...row.facts, status };
     },
     async writeAnchor(a, m, line) {
       get(a, m).anchor = line;
@@ -44,6 +50,7 @@ export function inMemoryEscrowClient(seed: Record<string, EscrowFacts> = {}) {
     async releaseMilestone(a, m) {
       const row = get(a, m);
       if (row.released) throw new Error("milestone already released");
+      if (row.disputed) throw new Error("milestone is disputed");
       row.released = { txHash: `fake-${(++releases).toString(16).padStart(64, "0")}` };
       return row.released;
     },
@@ -55,33 +62,42 @@ export function inMemoryEscrowClient(seed: Record<string, EscrowFacts> = {}) {
 }
 
 export interface TrustlessWorkConfig {
-  /** V2 testnet: https://beta.api.trustlesswork.com (to confirm against the live docs). */
+  /** V2: https://beta.api.trustlesswork.com (V1 at dev.api / api is a different, incompatible API). */
   baseUrl: string;
+  /** `<id>.<secret>`, sent as `x-api-key`. Self-service at dapp.trustlesswork.com. */
   apiKey: string;
-  /** Secret of the key listed in the escrow's releaseSigners / approver roles. */
+  /** Secret of the verifier key, listed in the escrow's approvers AND releaseSigners (and serviceProviders if it writes the anchor). */
   releaseSignerSecret: string;
 }
 
 /**
- * Real provider. Left as a precise TODO list on purpose: every call below is
- * one endpoint of the Trustless Work V2 API, and the names come from their
- * docs, but nothing here has been exercised against testnet yet. Fill in after
- * the integration spike, then run the same tests against it.
+ * Real provider against Trustless Work V2 multi-release escrows. Every method
+ * is one or two endpoints; the shapes below come from the V2 OpenAPI
+ * (`/api/all-json`) and the audit scripts, and NOTHING here has run against
+ * testnet yet. Wire it as soon as a key exists, then run the same tests.
+ *
+ * Milestone ids in this service are 1-based strings ("1"); Trustless Work uses
+ * 0-based indices: index = Number(milestoneId) - 1.
+ *
+ * Writes return `{ unsignedXdr, txHash }`: sign the XDR exactly as given with
+ * the role's key and POST it to `/stellar/send-transaction { signedXdr }`.
  */
 export function trustlessWorkClient(_config: TrustlessWorkConfig): EscrowClient {
   const notWired = (what: string) => async (): Promise<never> => {
     throw new Error(`trustlessWorkClient.${what}: not wired yet (pending the V2 testnet spike)`);
   };
   return {
-    // GET escrow by contract id -> milestones[idx].{receiver, amount, evidence, status}; funding from the funding tx.
+    // GET /escrow/multi-release/v2/{contractId} -> milestones[index].{receiver, amount, evidence, status, flags}
+    // GET /escrows/{contractId}/deposits -> [{ txHash, ledgerClosedAt, fromAddress, amount }] for fundedAt / fundingTxHash
+    // committedConditionHash = the conditionHash the backend wrote in milestones[index].description at deploy.
     getMilestoneFacts: notWired("getMilestoneFacts"),
-    // POST /escrow/multi-release/change-milestone-status { contractId, milestoneIndex, newStatus, newEvidence, serviceProvider }
-    //   -> unsignedXdr -> sign with the serviceProvider key -> POST /stellar/send-transaction.
+    // POST /escrow/multi-release/v2/change-milestone-status { contractId, milestoneIndex, newStatus, newEvidence (<= 500 chars), serviceProvider }
+    //   signed by a serviceProvider key -> POST /stellar/send-transaction.
     writeAnchor: notWired("writeAnchor"),
-    // POST /escrow/multi-release/approve-milestone then /release-milestone-funds { contractId, milestoneIndex, releaseSigner }
-    //   -> unsignedXdr -> sign with releaseSignerSecret -> POST /stellar/send-transaction -> txHash.
+    // POST /escrow/multi-release/v2/approve-and-release-milestones { contractId, milestoneIndexes: [index], signer }
+    //   signer must be in approvers AND releaseSigners (enforced on-chain) -> sign -> send -> txHash.
     releaseMilestone: notWired("releaseMilestone"),
-    // POST /escrow/multi-release/dispute-milestone { contractId, milestoneIndex, signer } -> sign -> send.
+    // POST /escrow/multi-release/v2/dispute-milestones { contractId, milestoneIndexes: [index], signer } -> sign -> send.
     disputeMilestone: notWired("disputeMilestone"),
   };
 }

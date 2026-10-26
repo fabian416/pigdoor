@@ -52,7 +52,10 @@ Flujo: texto → `draftCondition()` (modelo) → la app pone `payer`, `receiver`
 ```
 
 El verificador determinístico compara esto con la condición: **condición comprometida**, destino,
-tope, ventana, fondeo. `committedConditionHash` es el hash que el backend escribió en el escrow
+tope, ventana, fondeo. Corre igual para `escrow_funded` y `payee_prepaid`: en el segundo caso no hay
+una liquidación externa que verificar, así que estos chequeos son la integridad del propio escrow y
+no un segundo verificador. `status` lo informa el escrow y decide si se puede verificar (409 si ya
+está RELEASED o REFUNDED). `committedConditionHash` es el hash que el backend escribió en el escrow
 (descripción del hito) al crearlo, leído de vuelta del escrow: así nadie puede presentar después
 una condición más laxa. Sin ese hash el veredicto es REVIEW, nunca ALLOW.
 
@@ -91,7 +94,8 @@ el frontend, un indexer o un tercero.
 ## 4. Anclaje del sobre (lo que se escribe en el escrow)
 
 El backend guarda el sobre (IPFS o storage público) y escribe en el campo `evidence` del hito, con
-`change-milestone-status`, una sola línea:
+`change-milestone-status` (lo firma un `serviceProvider`: o el verificador figura también en ese rol,
+o lo escribe el backend), una sola línea:
 
 ```
 verdict-v1 sha256=<sha256 de los bytes canónicos del sobre> uri=ipfs://<cid> | https://...
@@ -109,12 +113,14 @@ CLI: `node packages/semantic/src/verify-cli.ts "verdict-v1 sha256=... uri=..."`.
 | FUNDED | ALLOW | antes de `notAfter` | `RELEASE` | verificador |
 | FUNDED | REVIEW | antes | `ESCALATE` → DISPUTED | verificador |
 | FUNDED | DENY | antes | `WAIT` (el proveedor puede reintentar) | — |
-| FUNDED o DISPUTED | cualquiera o ninguno | **después de `notAfter`** | `REFUND` | **cualquiera** |
+| FUNDED o DISPUTED | cualquiera o ninguno | **después de `notAfter`** | `REFUND` | **dispute resolver** (el pagador abre la disputa; en Trustless Work la plata sale solo por release, resolve-dispute o withdraw-remaining-funds) |
 | DISPUTED | — | antes | `WAIT` | dispute resolver |
 | RELEASED / REFUNDED | — | — | `NONE` | — |
 
 La fila en negrita es la regla "un verificador caído no deja la plata trabada": el vencimiento le
-gana a todo veredicto, incluso a un ALLOW que nadie ejecutó. `refundGraceSeconds` da margen para
+gana a todo veredicto, incluso a un ALLOW que nadie ejecutó. Quien ejecuta el reembolso es el
+dispute resolver del escrow (el contrato de Trustless Work no tiene reembolso por tiempo); el
+verificador no tiene ese rol, así que no puede bloquearlo. `refundGraceSeconds` da margen para
 ejecutar el release.
 
 ## 6. Caso de disputa (`openDispute()`)
@@ -128,10 +134,10 @@ el resolutor lo re-verifique.
 
 | Método y ruta | Entrada | Salida |
 |---|---|---|
-| `GET /health` | — | `{ ok, verifier (G...), model, autoRelease }` |
-| `POST /conditions` | `{ text, payer, receiver, asset, defaultDeadline }` | `{ condition, conditionHash, draft }` (503 sin credenciales de modelo) |
+| `GET /health` | — | `{ ok, verifier (G...), model, autoRelease, acceptReadings, authenticated }`. Regla para el backend: si `acceptReadings` es true, el servicio está en modo demo y ningún veredicto debe disparar un release real |
+| `POST /conditions` | `{ text, payer, receiver, asset, settlementRole, defaultDeadline }` | `{ condition, conditionHash, draft }` (503 sin credenciales de modelo) |
 | `POST /agreements/:id/underwrite` | `{ condition, facts: { score, kycOk, kycValidUntil, approvedLimit, outstanding, evaluatedAt }, policy: { minScore, maxDisbursement, version } }` | `{ id, envelope, anchor, fundable }` — el veredicto del underwriter de Lendoor, `milestoneId: "underwriting"`, firmado con `UNDERWRITER_SECRET` si está, antes de fondear |
-| `POST /agreements/:id/milestones/:m/verify` | `{ condition, evidence[], image \| reading, fx?, status? }` | `{ id, envelope, anchor, nextStep, status, release? }` |
+| `POST /agreements/:id/milestones/:m/verify` | `{ condition, evidence[], image \| reading, fx? }` | `{ id, envelope, anchor, nextStep, status, release?, releaseError?, demo }`. El estado del hito se lee del escrow, nunca del body; 409 si ya está RELEASED o REFUNDED; 503 si el modelo no respondió (reintentar, no se firma nada) |
 | `GET /envelopes/:sha256` | — | los bytes canónicos del sobre (destino del anclaje) |
 | `GET /envelopes` | — | `{ ids }` |
 | `POST /envelopes/:sha256/challenge` | `{ openedBy, note, condition, evidenceLinks? }` | `{ caseId, case }` y marca el hito en disputa |
@@ -142,10 +148,12 @@ hechos del escrow por su cuenta (`EscrowClient`), nunca confía en los que le ma
 
 ## Códigos de razón
 
-`OK · NO_CRITERIA · CONDITION_NOT_COMMITTED · CONDITION_MISMATCH · DESTINATION_MISMATCH · AMOUNT_OVER_MAX · EVIDENCE_OUT_OF_WINDOW · ESCROW_NOT_FUNDED ·
-MERCHANT_MISMATCH · ITEMS_MISMATCH · DOC_DATE_OUT_OF_WINDOW · DOC_DATE_UNREADABLE · DOC_TOTAL_OVER_MAX ·
-DOC_TOTAL_UNREADABLE · DOC_CURRENCY_UNKNOWN · DOCUMENT_ILLEGIBLE · MODEL_OUTPUT_INVALID · MODEL_REFUSED ·
-MODEL_ERROR · LOW_CONFIDENCE`
+La lista completa y normativa es `REASON_CODES` en `packages/core/src/criteria.ts`:
+`OK · NO_CRITERIA · CONDITION_NOT_COMMITTED · CONDITION_MISMATCH · DESTINATION_MISMATCH · AMOUNT_OVER_MAX ·
+EVIDENCE_OUT_OF_WINDOW · ESCROW_NOT_FUNDED · SCORE_BELOW_THRESHOLD · KYC_INVALID · AMOUNT_OVER_LIMIT ·
+AMOUNT_OVER_POLICY · MERCHANT_MISMATCH · ITEMS_MISMATCH · DOC_DATE_OUT_OF_WINDOW · DOC_DATE_UNREADABLE ·
+DOC_TOTAL_OVER_MAX · DOC_TOTAL_UNREADABLE · DOC_CURRENCY_UNKNOWN · DOCUMENT_ILLEGIBLE · TASK_NOT_VISIBLE ·
+TASK_NOT_DONE · PHOTO_STAGED · MODEL_OUTPUT_INVALID · MODEL_REFUSED · MODEL_ERROR · LOW_CONFIDENCE`
 
 ## Regla de decisión (`decide()`, versión de política "1")
 

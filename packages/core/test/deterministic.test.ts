@@ -41,11 +41,13 @@ describe("deterministic verifier", () => {
     expect(early.evidence_within_window.result).toBe("FAIL");
   });
 
-  it("for an allowance (payee_prepaid) only the integrity checks run: there is no settlement to check", () => {
+  it("for an allowance (payee_prepaid) the same escrow checks run: a wrong payee or amount never releases", () => {
     const results = checkDeterministic(taskCondition, taskFacts);
-    expect(results.map((r) => r.id)).toEqual(["condition_matches_escrow", "escrow_funded"]);
+    expect(results).toHaveLength(5);
     expect(results.every((r) => r.result === "PASS")).toBe(true);
     expect(byId(checkDeterministic(taskCondition, { ...taskFacts, committedConditionHash: "0".repeat(64) })).condition_matches_escrow.result).toBe("FAIL");
+    expect(byId(checkDeterministic(taskCondition, { ...taskFacts, milestoneReceiver: stranger.publicKey() })).destination_matches.result).toBe("FAIL");
+    expect(byId(checkDeterministic(taskCondition, { ...taskFacts, milestoneAmount: "2000" })).amount_within_max.result).toBe("FAIL");
   });
 
   it("fails when funding is not confirmed on-chain", () => {

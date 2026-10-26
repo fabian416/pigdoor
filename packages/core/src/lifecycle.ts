@@ -36,8 +36,14 @@ export type ActionReason = z.infer<typeof ActionReason>;
 export interface NextStep {
   action: Action;
   reason: ActionReason;
-  /** Who may perform it. "anyone" is the permissionless refund. */
-  actor: "verifier" | "dispute_resolver" | "anyone" | "nobody";
+  /**
+   * Who performs it. In Trustless Work funds leave only via release (release
+   * signer), resolve-dispute (dispute resolver) or withdraw-remaining-funds
+   * (dispute resolver): a refund after the deadline is a dispute the payer
+   * opens and the resolver settles. The verifier holds neither role, so it
+   * cannot block it.
+   */
+  actor: "verifier" | "dispute_resolver" | "payer" | "nobody";
 }
 
 export interface LifecycleOptions {
@@ -59,9 +65,10 @@ export function nextStep(condition: Condition, state: MilestoneState, nowIso: st
   }
 
   // The deadline outranks every verdict, including a pending review and an
-  // ALLOW nobody executed in time. The payer always gets the money back.
+  // ALLOW nobody executed in time. The payer gets the money back through the
+  // dispute resolver; the verifier has no role that could block it.
   if (deadlinePassed(condition, nowIso, options.refundGraceSeconds ?? 0)) {
-    return { action: "REFUND", reason: "DEADLINE_PASSED", actor: "anyone" };
+    return { action: "REFUND", reason: "DEADLINE_PASSED", actor: "dispute_resolver" };
   }
 
   if (state.status === "DISPUTED") {

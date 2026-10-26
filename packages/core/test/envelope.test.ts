@@ -8,7 +8,7 @@ import { condition, goodFacts, receiptEvidence, stranger, verifierKey } from "./
 function unsigned(): UnsignedEnvelope {
   const criteria = checkDeterministic(condition, goodFacts);
   return {
-    agreementId: "CADMJSOMBSHUW2LMETBUOVH2CSVY3EDISY4V7UMH7TDU2LE5XRCEULAG",
+    agreementId: "ESCROW-DEMO-0001",
     milestoneId: "1",
     verifier: verifierKey.publicKey(),
     verifierType: "automated_agent",

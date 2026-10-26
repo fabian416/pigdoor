@@ -13,7 +13,7 @@ export {
   conditionHash,
 } from "./condition.ts";
 export type { Condition, PurchaseCondition, TaskCondition } from "./condition.ts";
-export { checkUnderwriting, underwriterVerifier } from "./underwriter.ts";
+export { UnderwritingFactsSchema, UnderwritingPolicySchema, checkUnderwriting, underwriterVerifier } from "./underwriter.ts";
 export type { UnderwritingFacts, UnderwritingPolicy } from "./underwriter.ts";
 export {
   CriterionOutcome,
@@ -27,7 +27,7 @@ export {
   decide,
 } from "./criteria.ts";
 export type { CriterionResult, DecisionPolicy, Verdict, Verifier } from "./criteria.ts";
-export { checkDeterministic, deterministicVerifier } from "./deterministic.ts";
+export { EscrowFactsSchema, checkDeterministic, deterministicVerifier } from "./deterministic.ts";
 export type { EscrowFacts } from "./deterministic.ts";
 export {
   EvidenceItemSchema,

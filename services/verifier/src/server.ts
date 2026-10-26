@@ -24,7 +24,8 @@ import { inMemoryEscrowClient, trustlessWorkClient } from "./escrow-client.ts";
 import { fileStore } from "./store.ts";
 
 const port = Number(process.env.PORT ?? 8787);
-const publicUrl = process.env.PUBLIC_URL ?? `http://localhost:${port}`;
+// The anchor written on-chain carries this URL; with a real escrow it must be the real one.
+const publicUrl = process.env.PUBLIC_URL ?? (process.env.ESCROW === "tw" ? required("PUBLIC_URL") : `http://localhost:${port}`);
 
 const verifierKey = process.env.VERIFIER_SECRET ? Keypair.fromSecret(process.env.VERIFIER_SECRET) : Keypair.random();
 if (!process.env.VERIFIER_SECRET) console.warn(`VERIFIER_SECRET not set; ephemeral verifier ${verifierKey.publicKey()}`);
@@ -77,8 +78,11 @@ function existsAntProfile(): boolean {
   }
 }
 
-/** Demo escrow: milestone 1 of agreement "demo" funded with the example facts. */
+/** Demo escrow: the deck's two milestones, funded with the example facts (synthetic hashes). */
 function seededMemoryEscrow() {
-  const facts = JSON.parse(readFileSync(new URL("../../../examples/lendoor/facts.json", import.meta.url), "utf8"));
-  return inMemoryEscrowClient({ "demo/1": facts }).client;
+  const read = (p: string) => JSON.parse(readFileSync(new URL(p, import.meta.url), "utf8"));
+  return inMemoryEscrowClient({
+    "demo/1": read("../../../examples/lendoor/facts.json"),
+    "sasha/1": read("../../../examples/piggy/facts.json"),
+  }).client;
 }

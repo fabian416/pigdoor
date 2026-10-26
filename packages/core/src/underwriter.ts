@@ -1,5 +1,6 @@
+import { z } from "zod";
 import { toStroops } from "./amount.ts";
-import type { Condition } from "./condition.ts";
+import { Amount, type Condition } from "./condition.ts";
 import type { CriterionResult, Verifier } from "./criteria.ts";
 
 /**
@@ -8,26 +9,28 @@ import type { CriterionResult, Verifier } from "./criteria.ts";
  * verifiers produce, so a funder audits approval and release the same way.
  * Nothing here calls a model; the score comes from Lendoor's risk engine.
  */
-export interface UnderwritingFacts {
+export const UnderwritingFactsSchema = z.object({
   /** Lendoor score, 0-1000. */
-  score: number;
-  kycOk: boolean;
+  score: z.number().int().min(0).max(1000),
+  kycOk: z.boolean(),
   /** When the KYC attestation expires. */
-  kycValidUntil: string;
+  kycValidUntil: z.iso.datetime(),
   /** Credit line the risk engine granted, decimal string. */
-  approvedLimit: string;
+  approvedLimit: Amount,
   /** Principal currently outstanding, decimal string. */
-  outstanding: string;
+  outstanding: Amount,
   /** When the underwriting ran. */
-  evaluatedAt: string;
-}
+  evaluatedAt: z.iso.datetime(),
+});
+export type UnderwritingFacts = z.infer<typeof UnderwritingFactsSchema>;
 
-export interface UnderwritingPolicy {
-  minScore: number;
+export const UnderwritingPolicySchema = z.object({
+  minScore: z.number().int().min(0).max(1000),
   /** Hard cap per disbursement, decimal string. */
-  maxDisbursement: string;
-  version: string;
-}
+  maxDisbursement: Amount,
+  version: z.string().min(1),
+});
+export type UnderwritingPolicy = z.infer<typeof UnderwritingPolicySchema>;
 
 const NAME = "lendoor_underwriter";
 

@@ -61,7 +61,8 @@ Rules:
 ${COMMON_RULES}
 - For merchantMatches and itemsMatch, compare against the expected merchant and items given in the request. Handwriting, abbreviations and local synonyms are fine; a different business or different goods are not.
 - Dates: write YYYY-MM-DD. Day-first formats are common in Latin America (31/10/2026 means 31 October).
-- Totals: digits and a dot only, no thousands separators, no currency symbol.`;
+- Totals: digits and a dot only, no thousands separators, no currency symbol.
+- currencyOnDocument: a bare "$" on a document from Argentina means ARS, from Peru PEN, from Mexico MXN; "US$" or "USD" means USD. Use null only when nothing indicates the currency.`;
 
 export const TASK_SYSTEM_PROMPT = `You look at a photo and report whether it shows a household or personal task done, against a short list of "done when" statements.
 
@@ -133,11 +134,13 @@ export function assessPurchaseReading(condition: PurchaseCondition, reading: Doc
     ),
   );
 
-  const docDate = reading.dateOnDocument ? Date.parse(reading.dateOnDocument + "T12:00:00Z") : Number.NaN;
-  if (!Number.isFinite(docDate)) {
+  // Day-level comparison: a document carries a date, the window carries instants.
+  // An invoice issued the same day the condition was frozen is inside the window.
+  const docDay = reading.dateOnDocument && /^\d{4}-\d{2}-\d{2}$/.test(reading.dateOnDocument) ? reading.dateOnDocument : null;
+  if (!docDay || !Number.isFinite(Date.parse(docDay + "T00:00:00Z"))) {
     out.push(criterion("doc_date_within_window", "UNKNOWN", "DOC_DATE_UNREADABLE", "no readable date on the document"));
   } else {
-    const inWindow = docDate >= Date.parse(condition.window.notBefore) && docDate <= Date.parse(condition.window.notAfter);
+    const inWindow = docDay >= condition.window.notBefore.slice(0, 10) && docDay <= condition.window.notAfter.slice(0, 10);
     out.push(
       criterion(
         "doc_date_within_window",
@@ -164,8 +167,11 @@ export function assessTaskReading(condition: TaskCondition, reading: TaskReading
 
   out.push(criterion("task_visible", reading.taskVisible, "TASK_NOT_VISIBLE", `expected to see: ${condition.task.title}; photo shows: ${reading.sceneDescription}`));
 
-  const observed = reading.doneWhenObserved.filter((s) => condition.task.doneWhen.includes(s));
-  const allObserved = condition.task.doneWhen.every((s) => observed.includes(s));
+  // Accent- and case-insensitive match, so a model that paraphrases a tilde does not fail a child.
+  const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  const expected = condition.task.doneWhen.map(norm);
+  const observed = condition.task.doneWhen.filter((s, i) => reading.doneWhenObserved.some((o) => norm(o) === expected[i]));
+  const allObserved = observed.length === condition.task.doneWhen.length;
   // The model's taskDone and the observed statements must agree; disagreement is uncertainty, not a pass.
   const done: CriterionResult["result"] =
     reading.taskVisible === "FAIL" ? "FAIL" : reading.taskDone === "PASS" && allObserved ? "PASS" : reading.taskDone === "FAIL" ? "FAIL" : "UNKNOWN";
@@ -207,18 +213,22 @@ function assessTotal(condition: PurchaseCondition, reading: DocumentReading, fx?
   if (reading.totalOnDocument === null) {
     return criterion(id, "UNKNOWN", "DOC_TOTAL_UNREADABLE", "no readable total on the document", false);
   }
-  const currency = reading.currencyOnDocument?.toUpperCase() ?? null;
-  const sameAsset = currency === null || currency === condition.asset.code.toUpperCase();
+  // A document without an explicit currency is assumed to be in the local
+  // currency the caller supplied a rate for; never silently in the asset.
+  const currency = reading.currencyOnDocument?.toUpperCase() ?? (fx ? fx.currency.toUpperCase() : null);
+  const sameAsset = currency === condition.asset.code.toUpperCase();
 
   let totalInAsset: string;
+  let via = "";
   if (sameAsset) {
     totalInAsset = reading.totalOnDocument;
   } else if (fx && fx.currency.toUpperCase() === currency) {
     const converted = Number(reading.totalOnDocument) / fx.unitsPerAsset;
     if (!Number.isFinite(converted)) return criterion(id, "UNKNOWN", "DOC_TOTAL_UNREADABLE", "total is not a number", false);
     totalInAsset = converted.toFixed(7);
+    via = ` at ${fx.unitsPerAsset} ${currency}/${condition.asset.code} = ${totalInAsset}`;
   } else {
-    return criterion(id, "UNKNOWN", "DOC_CURRENCY_UNKNOWN", `total is in ${currency}, no rate to ${condition.asset.code}`, false);
+    return criterion(id, "UNKNOWN", "DOC_CURRENCY_UNKNOWN", `total is in ${currency ?? "an unknown currency"}, no rate to ${condition.asset.code}`, false);
   }
 
   let within: boolean;
@@ -231,7 +241,7 @@ function assessTotal(condition: PurchaseCondition, reading: DocumentReading, fx?
     id,
     within ? "PASS" : "FAIL",
     "DOC_TOTAL_OVER_MAX",
-    `document total ${reading.totalOnDocument} ${currency ?? condition.asset.code} vs maximum ${condition.maxAmount} ${condition.asset.code}`,
+    `document total ${reading.totalOnDocument} ${currency}${via} vs maximum ${condition.maxAmount} ${condition.asset.code}`,
   );
 }
 

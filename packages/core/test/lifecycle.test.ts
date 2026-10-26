@@ -18,9 +18,9 @@ describe("milestone lifecycle", () => {
     expect(nextStep(condition, { status: "FUNDED" }, inWindow).reason).toBe("NO_VERDICT_YET");
   });
 
-  it("refund after the deadline is permissionless and beats every verdict", () => {
+  it("refund after the deadline beats every verdict; the resolver executes it and the verifier cannot block it", () => {
     for (const verdict of [allow, deny, review, undefined]) {
-      expect(nextStep(condition, { status: "FUNDED", verdict }, afterDeadline)).toEqual({ action: "REFUND", reason: "DEADLINE_PASSED", actor: "anyone" });
+      expect(nextStep(condition, { status: "FUNDED", verdict }, afterDeadline)).toEqual({ action: "REFUND", reason: "DEADLINE_PASSED", actor: "dispute_resolver" });
     }
     expect(nextStep(condition, { status: "DISPUTED", verdict: review }, afterDeadline).action).toBe("REFUND");
   });
