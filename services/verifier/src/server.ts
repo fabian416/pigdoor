@@ -81,11 +81,23 @@ function existsAntProfile(): boolean {
   }
 }
 
-/** Demo escrow: the deck's two milestones, funded with the example facts (synthetic hashes). */
+/**
+ * Demo escrow: the deck's two milestones, funded with the example facts
+ * (synthetic hashes). Escalations are reported in the response but do not
+ * flag the seeded milestone: one blurry photo must not leave the public demo
+ * stuck at AWAITING_RESOLUTION for everyone after it. A real escrow keeps its
+ * disputes; this one is a sandbox shared by every visitor.
+ */
 function seededMemoryEscrow() {
   const read = (p: string) => JSON.parse(readFileSync(new URL(p, import.meta.url), "utf8"));
-  return inMemoryEscrowClient({
+  const { client } = inMemoryEscrowClient({
     "demo/1": read("../../../examples/lendoor/facts.json"),
     "sasha/1": read("../../../examples/piggy/facts.json"),
-  }).client;
+  });
+  return {
+    ...client,
+    async disputeMilestone(agreementId: string, milestoneId: string, reason: string) {
+      console.warn(`demo escrow: ${agreementId}/${milestoneId} escalated (${reason}); milestone left FUNDED for the next visitor`);
+    },
+  };
 }
