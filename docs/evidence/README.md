@@ -18,3 +18,13 @@ node packages/semantic/src/verify-cli.ts docs/evidence/839df0a154d7056b76c61a4ea
 
 The evidence bytes the first two name are `examples/lendoor/factura-ok.jpg` (`69d9b7f0…`) and
 `examples/lendoor/factura-mal.jpg` (`5b15f329…`).
+
+## Screenshots (stellar.expert, 26 Oct 2026)
+
+- `anchor-tx-3e10e6dd-stellar-expert.jpg`: `change_milestone_status` on escrow `CDGQRKMQ…U6WJ7W`, invoked and
+  signed by the verifier `GC32JANE…JMHR`, with the anchor line `verdict-v1 sha256=839df0a1… uri=…` and
+  status `completed` as the on-chain arguments.
+- `release-tx-b926a776-stellar-expert.jpg`: `release_milestone_funds` on the same escrow, invoked and signed
+  by the same verifier key.
+
+The testnet resets on 16 Dec 2026; these are the lasting record next to the envelopes above.
